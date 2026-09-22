@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode } from 'react'
 
 import { PanelEmpty } from '@/app/overlays/panel'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,6 @@ import { localResidencyWord } from './residency'
 import { ToolsWash } from './tools-status'
 import type { ConnectorCardModel, ConnectorGroupModel, ConnectorSegmentId, ConnectorsFilter } from './types'
 
-const AVAILABLE_PREVIEW = 4
 
 export interface ConnectorsDirectoryProps {
   addYourOwn?: ReactNode
@@ -60,7 +59,6 @@ export function ConnectorsDirectory({
   const showSegments = segments.length > 2
   const segmentFellBack = segments.length > 0 && segment !== filter.segment
 
-  const truncateAvailable = groups.length > 1 && filter.query.trim() === ''
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-slot="connectors-directory">
@@ -140,7 +138,6 @@ export function ConnectorsDirectory({
               onServerToggle={onServerToggle}
               onVerb={onVerb}
               selectedKey={selectedKey}
-              truncateAvailable={truncateAvailable}
               where={where}
             />
           ))}
@@ -176,7 +173,6 @@ function Group({
   onServerToggle,
   onVerb,
   selectedKey,
-  truncateAvailable,
   where
 }: {
   busyKey: null | string
@@ -186,14 +182,10 @@ function Group({
   onServerToggle?: (card: ConnectorCardModel, next: boolean) => void
   onVerb?: (card: ConnectorCardModel) => void
   selectedKey: null | string
-  truncateAvailable: boolean
   where: string
 }) {
   const { t } = useI18n()
   const copy = t.connectorsPage.group
-  const [expanded, setExpanded] = useState(false)
-  const truncates = group.id === 'available' && truncateAvailable && group.cards.length > AVAILABLE_PREVIEW
-  const shown = truncates && !expanded ? group.cards.slice(0, AVAILABLE_PREVIEW) : group.cards
 
   return (
     <section className="grid gap-2">
@@ -205,16 +197,10 @@ function Group({
 
         {group.id === 'connected' && showsAttentionFirst(group) ? <Note>{copy.connectedNote}</Note> : null}
         {group.id === 'off' ? <Note>{copy.offNote}</Note> : null}
-
-        {truncates ? (
-          <Button className="ml-auto" onClick={() => setExpanded(!expanded)} size="xs" variant="text">
-            {expanded ? copy.availableShowFewer : copy.availableShowAll(group.cards.length)}
-          </Button>
-        ) : null}
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {shown.map(card => {
+        {group.cards.map(card => {
           const key = cardKey(card)
 
           return (

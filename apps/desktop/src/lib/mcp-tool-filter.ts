@@ -66,7 +66,7 @@ export function toggleToolInServer(server: ServerConfig, name: string): ServerCo
 }
 
 // The whole off-list in one write, keeping the config's mode: include when that key is present, else exclude.
-export function setDisabledTools(server: ServerConfig, disabled: string[], discovered: string[]): ServerConfig {
+export function setDisabledTools(server: ServerConfig, disabled: string[], discovered: string[]) {
   const { exclude, include } = readToolsFilter(server)
   const off = new Set(disabled)
   const seen = new Set(discovered)

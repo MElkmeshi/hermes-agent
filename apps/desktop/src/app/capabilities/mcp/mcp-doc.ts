@@ -1,41 +1,41 @@
 // The mcp.json document the editor shows: written and parsed here, stored as the config.yaml `mcp_servers` map.
 
-import { isServerShape, type McpServers, normalizeEntry } from '@/lib/mcp-servers'
+// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `isServerShape` is main's exported name, shared with mcp-tab.tsx; it is bound to a domain name here instead of renaming the export.
+import { type McpServerEntry, type McpServers, isServerShape as namesAServer, normalizeEntry } from '@/lib/mcp-servers'
 
 export const STARTER_ENTRY = { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/path/to/dir'] }
 
-export const pretty = (value: unknown) => JSON.stringify(value, null, 2)
-
-export const wrapDoc = (entries: McpServers) => pretty({ mcpServers: entries })
+export const wrapDoc = (entries: McpServers) => JSON.stringify({ mcpServers: entries }, null, 2)
 
 /** Accepts `{"mcpServers": {...}}` (ecosystem), a bare name→config map, or throws. */
 export function parseServersDoc(raw: string): McpServers {
-  const parsed = JSON.parse(raw) as unknown
+  const parsed: unknown = JSON.parse(raw)
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  if (!(parsed instanceof Object) || Array.isArray(parsed)) {
     throw new Error('Expected a JSON object')
   }
 
-  const doc = parsed as Record<string, unknown>
+  // SAFETY: an object and not an array, checked on the line above; every property read below is optional.
+  const doc = parsed as McpServerEntry
 
-  if (isServerShape(doc)) {
+  if (namesAServer(doc)) {
     throw new Error('Wrap the server in {"mcpServers": {"name": …}} so it has a name')
   }
 
   const wrapper = doc.mcpServers ?? doc.mcp_servers
 
-  const map =
-    wrapper && typeof wrapper === 'object' && !Array.isArray(wrapper) ? (wrapper as McpServers) : (doc as McpServers)
+  // SAFETY: an object and not an array; `normalizeEntry` runs over every value below, so a non-object entry cannot reach a reader.
+  const map = (wrapper instanceof Object && !Array.isArray(wrapper) ? wrapper : doc) as McpServers
 
   return Object.fromEntries(Object.entries(map).map(([name, entry]) => [name, normalizeEntry(entry)]))
 }
 
 // The runtime gate is `enabled: false` — the same flag `hermes mcp` and the
 // agent's MCP loader read.
-export const serverEnabled = (server: Record<string, unknown>) => server.enabled !== false
+export const serverEnabled = (server: McpServerEntry) => server.enabled !== false
 
 /** `enabled: false` written or removed. Absent means on, so on deletes the key. */
-export function withEnabled(server: Record<string, unknown>, enabled: boolean): Record<string, unknown> {
+export function withEnabled(server: McpServerEntry, enabled: boolean): McpServerEntry {
   const next = { ...server }
 
   if (enabled) {
@@ -71,38 +71,105 @@ export interface ServerBlock {
   to: number
 }
 
-export function scanServerBlocks(text: string): ServerBlock[] {
-  const skipString = (index: number): number => {
-    let i = index + 1
+function skipString(text: string, index: number): number {
+  let i = index + 1
 
-    while (i < text.length) {
-      if (text[i] === '\\') {
-        i += 2
-      } else if (text[i] === '"') {
+  while (i < text.length) {
+    if (text[i] === '\\') {
+      i += 2
+    } else if (text[i] === '"') {
+      return i + 1
+    } else {
+      i++
+    }
+  }
+
+  return i
+}
+
+// Container: the object after "mcpServers"/"mcp_servers", else the doc root.
+function containerStart(text: string): number {
+  const wrapper = /"mcpServers"|"mcp_servers"/.exec(text)
+
+  if (!wrapper) {
+    return text.indexOf('{')
+  }
+
+  let i = wrapper.index + wrapper[0].length
+
+  while (i < text.length && text[i] !== '{') {
+    i++
+  }
+
+  return i
+}
+
+/** The index just past the `{…}` that starts at `index`, balancing braces and skipping strings. */
+function objectEnd(text: string, index: number): number {
+  let depth = 0
+  let i = index
+
+  while (i < text.length) {
+    const c = text[i]
+
+    if (c === '"') {
+      i = skipString(text, i)
+
+      continue
+    }
+
+    if (c === '{') {
+      depth++
+    } else if (c === '}') {
+      depth--
+
+      if (depth === 0) {
         return i + 1
-      } else {
-        i++
       }
     }
 
-    return i
+    i++
   }
 
-  // Container: the object after "mcpServers"/"mcp_servers", else the doc root.
-  let start = -1
-  const wrapper = /"mcpServers"|"mcp_servers"/.exec(text)
+  return i
+}
 
-  if (wrapper) {
-    let i = wrapper.index + wrapper[0].length
+/** The index of the next sibling key after a non-object value. */
+function siblingStart(text: string, index: number): number {
+  let i = index
 
-    while (i < text.length && text[i] !== '{') {
-      i++
+  while (i < text.length && text[i] !== ',' && text[i] !== '}') {
+    if (text[i] === '"') {
+      i = skipString(text, i)
+
+      continue
     }
 
-    start = i
-  } else {
-    start = text.indexOf('{')
+    i++
   }
+
+  return i
+}
+
+/** The index of the value after the `:` that follows the key ending at `index`. */
+function valueStart(text: string, index: number): number {
+  let i = index
+
+  while (i < text.length && text[i] !== ':') {
+    i++
+  }
+
+  i++
+
+  while (i < text.length && /\s/.test(text[i])) {
+    i++
+  }
+
+  return i
+}
+
+export function scanServerBlocks(text: string): ServerBlock[] {
+  const start = containerStart(text)
 
   if (start < 0 || text[start] !== '{') {
     return []
@@ -111,75 +178,26 @@ export function scanServerBlocks(text: string): ServerBlock[] {
   const blocks: ServerBlock[] = []
   let i = start + 1
 
-  while (i < text.length) {
-    const ch = text[i]
-
-    if (ch === '}') {
-      break
-    }
-
-    if (ch !== '"') {
+  while (i < text.length && text[i] !== '}') {
+    if (text[i] !== '"') {
       i++
 
       continue
     }
 
     const keyStart = i
-    const keyEnd = skipString(i)
+    const keyEnd = skipString(text, i)
     const name = text.slice(keyStart + 1, keyEnd - 1)
-    i = keyEnd
 
-    while (i < text.length && text[i] !== ':') {
-      i++
-    }
-
-    i++
-
-    while (i < text.length && /\s/.test(text[i])) {
-      i++
-    }
+    i = valueStart(text, keyEnd)
 
     if (text[i] === '{') {
-      let depth = 0
-      let j = i
+      const to = objectEnd(text, i)
 
-      while (j < text.length) {
-        const c = text[j]
-
-        if (c === '"') {
-          j = skipString(j)
-
-          continue
-        }
-
-        if (c === '{') {
-          depth++
-        } else if (c === '}') {
-          depth--
-
-          if (depth === 0) {
-            j++
-
-            break
-          }
-        }
-
-        j++
-      }
-
-      blocks.push({ from: keyStart, name, to: j })
-      i = j
+      blocks.push({ from: keyStart, name, to })
+      i = to
     } else {
-      // Non-object value — skip to the next sibling.
-      while (i < text.length && text[i] !== ',' && text[i] !== '}') {
-        if (text[i] === '"') {
-          i = skipString(i)
-
-          continue
-        }
-
-        i++
-      }
+      i = siblingStart(text, i)
     }
   }
 

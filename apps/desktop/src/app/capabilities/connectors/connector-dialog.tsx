@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { CatalogMark } from './catalog-mark'
 import { localResidencyWord } from './residency'
 import type { ConnectorCardModel, ConnectorOffBy, ConnectorState, ConnectorVerb, ConnectorWayHosted } from './types'
-import { LocalServerControl, WaysSection } from './ways-section'
+import { LocalServerControl } from './ways-section'
 
 type BadgeVariant = 'default' | 'destructive' | 'muted' | 'success' | 'warn'
 
@@ -52,11 +52,9 @@ export interface ConnectorDialogProps {
   cost?: { tokensPerCall?: string; usesPerMonth?: string }
   menu?: ReactNode
   onAuthenticate?: () => void
-  onConnect: () => void
   onDisconnect?: () => void
   onOpenAdmin?: () => void
   onOpenChange: (open: boolean) => void
-  onReconnect: () => void
   onServerToggle?: (next: boolean) => void
   onToggleForMe?: (next: boolean) => void
   onVerb?: () => void
@@ -191,12 +189,8 @@ function HostedColumn({
   card,
   connectedOn,
   connectElement,
-  onAuthenticate,
-  onConnect,
   onDisconnect,
   onOpenAdmin,
-  onReconnect,
-  onServerToggle,
   onToggleForMe,
   onVerb,
   orgDisabledCount = 0,
@@ -239,16 +233,6 @@ function HostedColumn({
       ) : null}
 
       <OrgNote count={orgDisabledCount} onOpenAdmin={onOpenAdmin} />
-
-      <WaysSection
-        card={card}
-        hostedVerb={false}
-        onAuthenticate={onAuthenticate}
-        onConnect={onConnect}
-        onDisconnect={onDisconnect}
-        onReconnect={onReconnect}
-        onServerToggle={onServerToggle}
-      />
 
       <div className="grid gap-1 border-t border-(--ui-stroke-tertiary) pt-3">
         <p className="text-[0.7rem] text-(--ui-text-tertiary)">
@@ -336,9 +320,6 @@ function LocalColumn({
   card,
   cost,
   onAuthenticate,
-  onConnect,
-  onDisconnect,
-  onReconnect,
   onServerToggle
 }: ColumnProps) {
   const { t } = useI18n()
@@ -363,15 +344,6 @@ function LocalColumn({
           <code className="break-all font-mono text-[0.65rem] text-(--ui-text-tertiary)">{target}</code>
         </div>
       ) : null}
-
-      <WaysSection
-        card={card}
-        onAuthenticate={onAuthenticate}
-        onConnect={onConnect}
-        onDisconnect={onDisconnect}
-        onReconnect={onReconnect}
-        onServerToggle={onServerToggle}
-      />
 
       {cost && (cost.tokensPerCall || cost.usesPerMonth) ? (
         <>

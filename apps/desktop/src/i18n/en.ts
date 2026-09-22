@@ -61,8 +61,6 @@ export const en: Translations = {
       connected: 'Connected',
       connectedNote: 'Broken connections first.',
       available: 'Available',
-      availableShowAll: (count: number) => `Show all ${count}`,
-      availableShowFewer: 'Show fewer',
       off: 'Turned off',
       offNote: 'Sign-ins are kept.'
     },
@@ -70,7 +68,6 @@ export const en: Translations = {
     card: {
       hosted: 'Hosted',
       inCatalog: 'In the Hermes catalog',
-      hostedTwin: 'Hosted version available',
       open: (name: string) => `Open ${name}`,
       turnServerOn: (name: string) => `Turn ${name} on`,
       turnServerOff: (name: string) => `Turn ${name} off`,
@@ -153,15 +150,9 @@ export const en: Translations = {
       appSwitch: (name: string) => `Hermes can use ${name}`,
       appSwitchHint: 'Your sign-in stays either way.',
       appSwitchOrg: 'Turned off by your organisation.',
-      waysTitle: (name: string) => `How Hermes reaches ${name}`,
-      wayHosted: 'Hosted',
-      wayHostedBody: 'Sign in once. Follows your account to every device and profile.',
-      wayLocalBody: 'An MCP server in this profile. Its sign-in stays on this computer.',
       hostedFooter: (where: string) => `Hosted. Nothing is installed ${where.replace(/^On /, 'on ')}.`,
       // Verbatim, by decision of the design of record.
       nousLine: 'Nous apps follow your account, not the profile.',
-      bothOn: (name: string) => `Both are on, so Hermes sees every ${name} tool twice.`,
-      turnOffLocal: 'Turn off the local server',
       rulesReadOnly: 'Rules cannot be changed right now.',
       rulesAppOff: (name: string) => `Turn ${name} on to change its tools.`,
       rulesSignIn: 'Sign in to change what Hermes may do here.',

@@ -4,14 +4,14 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type ProfileScope, testMcpServer } from '@/hermes'
 import { PROBE_TTL_MS, probeCache, probeKey, serverFingerprint } from '@/lib/mcp-probe-cache'
-import type { McpServers } from '@/lib/mcp-servers'
+import type { McpServerEntry, McpServers } from '@/lib/mcp-servers'
 import { countEnabledTools } from '@/lib/mcp-tool-filter'
 
 import { serverEnabled } from './mcp-doc'
 import { loadMcpUsage, okProbe, type Probe, serverCost, type ServerCost } from './mcp-status'
 
 export interface McpProbes {
-  costFor: (name: string, entry: Record<string, unknown>) => ServerCost
+  costFor: (name: string, entry: McpServerEntry) => ServerCost
   probes: Record<string, Probe>
   /** Forget every probe and the usage overlay; the caller bumps the epoch. */
   resetForProfileSwitch: () => void
@@ -114,7 +114,7 @@ export function useMcpProbes({
     })
   }, [scopeProfileKey, profile, appProfile, profileEpoch])
 
-  const costFor = (serverName: string, server: Record<string, unknown>): ServerCost =>
+  const costFor = (serverName: string, server: McpServerEntry): ServerCost =>
     serverCost(server, probes[serverName], serverName, toolCalls30d)
 
   // No entry at all without a successful probe: a zero would read as "this server has no tools".

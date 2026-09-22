@@ -40,10 +40,10 @@ function reasonOf(error: Error): ConnectorErrorReason | undefined {
   return data.reason ?? undefined
 }
 
-const asError = (thrown: unknown): Error => (thrown instanceof Error ? thrown : new Error(String(thrown)))
+const asError = (cause: unknown): Error => (cause instanceof Error ? cause : new Error(String(cause)))
 
-export function asConnectorError(thrown: unknown): ConnectorRpcError {
-  const error = asError(thrown)
+export function asConnectorError(cause: unknown): ConnectorRpcError {
+  const error = asError(cause)
 
   if (error instanceof ConnectorRpcError) {
     return error
@@ -54,8 +54,8 @@ export function asConnectorError(thrown: unknown): ConnectorRpcError {
   return new ConnectorRpcError(error.message, code, reasonOf(error))
 }
 
-export function isConnectorReason(thrown: unknown, ...reasons: readonly ConnectorErrorReason[]): boolean {
-  const error = asError(thrown)
+export function isConnectorReason(cause: unknown, ...reasons: readonly ConnectorErrorReason[]): boolean {
+  const error = asError(cause)
   const reason = error instanceof ConnectorRpcError ? error.reason : reasonOf(error)
 
   return reason !== undefined && reasons.includes(reason)

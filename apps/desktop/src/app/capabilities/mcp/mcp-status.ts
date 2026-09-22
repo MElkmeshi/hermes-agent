@@ -6,6 +6,7 @@ import { getUsageAnalytics, type McpTestResult, type ProfileScope } from '@/herm
 import type { Translations } from '@/i18n'
 import { estimateServerTokens, serverUsageCount } from '@/lib/mcp-cost'
 import { NEEDS_AUTH_RE } from '@/lib/mcp-probe-cache'
+import type { McpServerEntry } from '@/lib/mcp-servers'
 import { countEnabledTools } from '@/lib/mcp-tool-filter'
 
 import { serverEnabled } from './mcp-doc'
@@ -60,7 +61,7 @@ export async function loadMcpUsage(
   }
 }
 
-export function statusOf(server: Record<string, unknown>, probe: Probe | undefined): ServerStatus {
+export function statusOf(server: McpServerEntry, probe: Probe | undefined): ServerStatus {
   if (!serverEnabled(server)) {
     return 'off'
   }
@@ -80,20 +81,21 @@ export function statusOf(server: Record<string, unknown>, probe: Probe | undefin
   return NEEDS_AUTH_RE.test(probe.error ?? '') ? 'needs-auth' : 'error'
 }
 
-export const STATUS_DOT: Record<ServerStatus, string> = {
+export const STATUS_DOT = {
   ok: 'bg-emerald-500',
   error: 'bg-red-500',
   'needs-auth': 'bg-amber-500',
   probing: 'animate-pulse bg-foreground/40',
   off: 'bg-foreground/20',
   unknown: 'bg-foreground/20'
-}
+} satisfies Record<ServerStatus, string>
 
 /** Warning: OAuth for a header-auth or stdio server would rewrite its config to `auth: oauth`. */
-export function canAuthenticate(server: Record<string, unknown>, status: ServerStatus): boolean {
-  const hasHeaderAuth = !!server.headers && typeof server.headers === 'object'
+export function canAuthenticate(server: McpServerEntry, status: ServerStatus): boolean {
+  const hasHeaderAuth = server.headers instanceof Object
 
   return (
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- SAFETY: `server` is a hand-editable mcp.json entry; this is where its `url` becomes a string.
     typeof server.url === 'string' &&
     !hasHeaderAuth &&
     (server.auth === 'oauth' ? status === 'needs-auth' || status === 'error' : !server.auth && status === 'needs-auth')
@@ -108,7 +110,7 @@ export function canAuthenticate(server: Record<string, unknown>, status: ServerS
 export function capabilitySummary(
   m: Translations['settings']['mcp'],
   probe: McpTestResult,
-  server?: Record<string, unknown>,
+  server?: McpServerEntry,
   cost?: ServerCost
 ): string {
   const toolCount = server
@@ -135,7 +137,7 @@ export function statusLine(
   m: Translations['settings']['mcp'],
   status: ServerStatus,
   probe: Probe | undefined,
-  server?: Record<string, unknown>,
+  server?: McpServerEntry,
   cost?: ServerCost
 ): string {
   switch (status) {
@@ -164,7 +166,7 @@ export function statusLine(
 
 /** The per-server cost overlay from a probe and the 30-day analytics map. */
 export function serverCost(
-  server: Record<string, unknown>,
+  server: McpServerEntry,
   probe: Probe | undefined,
   name: string,
   toolCalls30d: null | Record<string, number>

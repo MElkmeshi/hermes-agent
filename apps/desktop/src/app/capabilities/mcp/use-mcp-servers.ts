@@ -17,7 +17,7 @@ import {
 import { useI18n } from '@/i18n'
 import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import { probeCache, probeKey } from '@/lib/mcp-probe-cache'
-import { getServers, type McpServers } from '@/lib/mcp-servers'
+import { getServers, type McpServerEntry, type McpServers } from '@/lib/mcp-servers'
 import { setDisabledTools, toggleToolInServer } from '@/lib/mcp-tool-filter'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
@@ -48,7 +48,7 @@ export interface McpServersController extends McpDraft, PublishedProbes {
   configError: unknown
   configFailed: boolean
   configLoading: boolean
-  descriptionFor: (name: string, entry: Record<string, unknown>) => null | string
+  descriptionFor: (name: string, entry: McpServerEntry) => null | string
   /** Config/document order, not alphabetical — the list mirrors mcp.json. */
   names: string[]
   onCatalogInstalled: () => Promise<void>
@@ -140,7 +140,7 @@ export function useMcpServers({ gateway, profile }: UseMcpServersOptions): McpSe
     [catalog, servers]
   )
 
-  const descriptionFor = (serverName: string, server: Record<string, unknown>): null | string => {
+  const descriptionFor = (serverName: string, server: McpServerEntry): null | string => {
     const lower = serverName.toLowerCase()
 
     const match = catalog.find(
@@ -326,7 +326,7 @@ export function useMcpServers({ gateway, profile }: UseMcpServersOptions): McpSe
   /** One entry, persisted and then mirrored into the document by the same transform. */
   const writeEntry = async (
     serverName: string,
-    transform: (entry: Record<string, unknown>) => Record<string, unknown>
+    transform: (entry: McpServerEntry) => McpServerEntry
   ): Promise<boolean> => {
     const base = servers[serverName]
 

@@ -116,15 +116,12 @@ export interface Translations {
       connected: string
       connectedNote: string
       available: string
-      availableShowAll: (count: number) => string
-      availableShowFewer: string
       off: string
       offNote: string
     }
     card: {
       hosted: string
       inCatalog: string
-      hostedTwin: string
       open: (name: string) => string
       turnServerOn: (name: string) => string
       turnServerOff: (name: string) => string
@@ -204,14 +201,8 @@ export interface Translations {
       appSwitch: (name: string) => string
       appSwitchHint: string
       appSwitchOrg: string
-      waysTitle: (name: string) => string
-      wayHosted: string
-      wayHostedBody: string
-      wayLocalBody: string
       hostedFooter: (where: string) => string
       nousLine: string
-      bothOn: (name: string) => string
-      turnOffLocal: string
       rulesReadOnly: string
       rulesAppOff: (name: string) => string
       rulesSignIn: string

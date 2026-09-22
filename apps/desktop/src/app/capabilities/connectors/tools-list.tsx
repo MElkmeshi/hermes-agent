@@ -508,6 +508,7 @@ function useViewportHeight() {
 
     const node = ref.current
 
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- SAFETY: an environment guard, not a value parse: `ResizeObserver` is absent in jsdom and in an Electron renderer before layout, and `typeof` is the only read that does not throw.
     if (!node || typeof ResizeObserver === 'undefined') {
       return
     }

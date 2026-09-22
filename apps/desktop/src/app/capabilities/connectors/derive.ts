@@ -152,10 +152,6 @@ export function localWay(server: LocalServerInput): ConnectorWayLocal {
   }
 }
 
-export function bothWaysOn({ hosted, local }: ConnectorWays): boolean {
-  return hosted?.state === 'connected' && local?.serverEnabled === true && local.state === 'connected'
-}
-
 type Speaker = { kind: 'hosted'; way: ConnectorWayHosted } | { kind: 'local'; way: ConnectorWayLocal }
 
 function speakerOf(ways: ConnectorWays): Speaker {
@@ -224,12 +220,6 @@ export function forgetAbandoned(
 
 export function localServerName(card: ConnectorCardModel): string {
   return card.ways.local?.serverName ?? card.slug
-}
-
-export type ConnectorTwinPill = 'hostedTwin' | null
-
-export function twinPillOf({ residency, ways }: ConnectorCardModel): ConnectorTwinPill {
-  return residency === 'local' && ways.hosted && ways.hosted.state !== 'off' ? 'hostedTwin' : null
 }
 
 export interface DeriveCardsInput {

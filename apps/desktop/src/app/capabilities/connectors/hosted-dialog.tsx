@@ -1,7 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useState } from 'react'
 
-import { SegmentedControl } from '@/components/ui/segmented-control'
 import type { ProfileScope } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { openFreeTierSignIn } from '@/store/free-tier-sign-in'
@@ -18,10 +16,9 @@ import {
 } from './data/account-operations'
 import { openConnectorsAdmin } from './data/portal'
 import { type HostedConnectorsView, useConnectorTools } from './data/queries'
-import { bothWaysOn, localServerName } from './derive'
+import { localServerName } from './derive'
 import { ConnectorDialogMenu } from './dialog-menu'
-import { localResidencyWord } from './residency'
-import { HostedToolsPanel, LocalToolsPanel, orgDisabledCount } from './tools-panel'
+import { HostedToolsPanel, orgDisabledCount } from './tools-panel'
 import type { ConnectorCardModel } from './types'
 
 export interface HostedConnectorDialogProps {
@@ -29,11 +26,9 @@ export interface HostedConnectorDialogProps {
   controller: McpServersController
   hosted: HostedConnectorsView
   onClose: () => void
-  onConnect: () => void
   onDisconnect: () => void
   onGiveUp: (opId: string) => void
   onReconnect: () => void
-  onRemoveServer: () => void
   onToggleForMe: (next: boolean) => void
   onVerb: () => void
   profile: ProfileScope
@@ -45,22 +40,17 @@ export function HostedConnectorDialog({
   controller,
   hosted,
   onClose,
-  onConnect,
   onDisconnect,
   onGiveUp,
   onReconnect,
-  onRemoveServer,
   onToggleForMe,
   onVerb,
   profile,
   togglePending
 }: HostedConnectorDialogProps) {
-  const { locale, t } = useI18n()
+  const { locale } = useI18n()
   const tools = useConnectorTools(profile, card.slug, hosted.listSlugs.has(card.slug))
   const operation = accountOperationFor(useStore($accountOperations), card.slug)
-  const [form, setForm] = useState<'hosted' | 'local'>('hosted')
-
-  const both = bothWaysOn(card.ways)
 
   const hostedPanel = (
     <HostedToolsPanel
@@ -89,7 +79,6 @@ export function HostedConnectorDialog({
       connectElement={element}
       menu={<ConnectorDialogMenu onReconnect={onReconnect} onRefreshTools={tools.refresh} />}
       onAuthenticate={() => void controller.authenticate(localServerName(card))}
-      onConnect={onConnect}
       onDisconnect={onDisconnect}
       onOpenAdmin={() => void openConnectorsAdmin()}
       onOpenChange={next => {
@@ -101,7 +90,6 @@ export function HostedConnectorDialog({
           onClose()
         }
       }}
-      onReconnect={onReconnect}
       onServerToggle={next => void controller.setServerEnabled(localServerName(card), next)}
       onToggleForMe={onToggleForMe}
       onVerb={onVerb}
@@ -109,30 +97,7 @@ export function HostedConnectorDialog({
       orgDisabledCount={orgDisabledCount(hosted.policy, card.slug, tools.tools)}
       rulesReadOnly={hosted.rulesFailed}
       togglePending={togglePending}
-      tools={
-        both ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex shrink-0 items-center border-b border-(--ui-stroke-tertiary) px-3.5 py-1.5">
-              <SegmentedControl
-                onChange={setForm}
-                options={[
-                  { id: 'hosted', label: t.connectorsPage.dialog.wayHosted },
-                  { id: 'local', label: localResidencyWord(t.connectorsPage) }
-                ]}
-                value={form}
-              />
-            </div>
-
-            {form === 'hosted' ? (
-              hostedPanel
-            ) : (
-              <LocalToolsPanel card={card} controller={controller} onRemove={onRemoveServer} />
-            )}
-          </div>
-        ) : (
-          hostedPanel
-        )
-      }
+      tools={hostedPanel}
     />
   )
 }

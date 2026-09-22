@@ -152,12 +152,12 @@ export function useHostedConnectors(scope: ProfileScope): HostedConnectorsView {
   }
 }
 
-function reportVersionSkew(error: unknown): never {
-  if (isMissingRpcMethod(error) || isOutOfSyncRpcParams(error instanceof Error ? error : String(error))) {
-    notifyError(error, translateNow('connectorsPage.page.hostedFailedTitle'))
+function reportVersionSkew(cause: unknown): never {
+  if (isMissingRpcMethod(cause) || isOutOfSyncRpcParams(cause instanceof Error ? cause : String(cause))) {
+    notifyError(cause, translateNow('connectorsPage.page.hostedFailedTitle'))
   }
 
-  throw error
+  throw cause
 }
 
 export function connectorToolsQueryOptions(scope: ProfileScope, slug: string) {

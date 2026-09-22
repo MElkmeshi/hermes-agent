@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
 import { Switch } from '@/components/ui/switch'
@@ -8,7 +7,6 @@ import { connectorIconUrl } from '@/lib/connector-tools'
 import { cn } from '@/lib/utils'
 
 import { CatalogMark } from './catalog-mark'
-import { twinPillOf } from './derive'
 import { localResidencyWord } from './residency'
 import type { ConnectorCardModel, ConnectorFact, ConnectorState } from './types'
 
@@ -75,7 +73,6 @@ export function ConnectorRowCard({
   const stateLabel = local && card.fact ? factText(copy, card.fact) : copy.state[card.stateWord]
 
   const reason = card.reason ? (card.reason.text ?? copy.reason[card.reason.key]) : undefined
-  const twin = twinPillOf(card)
 
   return (
     <div
@@ -111,12 +108,6 @@ export function ConnectorRowCard({
           </span>
 
           {card.inCatalog ? <CatalogMark /> : null}
-
-          {twin ? (
-            <Badge className="shrink-0" size="xs" variant="muted">
-              {copy.hostedTwin}
-            </Badge>
-          ) : null}
         </div>
 
         <SecondLine card={card} reason={reason} />

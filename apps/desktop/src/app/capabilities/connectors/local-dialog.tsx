@@ -13,19 +13,10 @@ export interface LocalConnectorDialogProps {
   card: ConnectorCardModel
   controller: McpServersController
   onClose: () => void
-  onConnect: () => void
-  onReconnect: () => void
   onRemoveServer: () => void
 }
 
-export function LocalConnectorDialog({
-  card,
-  controller,
-  onClose,
-  onConnect,
-  onReconnect,
-  onRemoveServer
-}: LocalConnectorDialogProps) {
+export function LocalConnectorDialog({ card, controller, onClose, onRemoveServer }: LocalConnectorDialogProps) {
   const name = localServerName(card)
 
   return (
@@ -35,13 +26,11 @@ export function LocalConnectorDialog({
       cost={localCost(controller, name)}
       menu={<ConnectorDialogMenu onRefreshTools={() => void controller.runProbe(name)} />}
       onAuthenticate={() => void controller.authenticate(name)}
-      onConnect={onConnect}
       onOpenChange={next => {
         if (!next) {
           onClose()
         }
       }}
-      onReconnect={onReconnect}
       onServerToggle={next => void controller.setServerEnabled(name, next)}
       open
       tools={<LocalToolsPanel card={card} controller={controller} onRemove={onRemoveServer} />}

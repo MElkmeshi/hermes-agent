@@ -34,6 +34,8 @@ interface PersistedEntry {
   data: unknown
 }
 
+type PersistedValue = PersistedEntry['data']
+
 interface PersistedBlob {
   bundled?: PersistedEntry
   catalog?: PersistedEntry
@@ -53,9 +55,9 @@ function currentIdentity(): PersistedIdentity | null {
   return status ? identityOf(status.has_guest) : readJson<PersistedIdentity>(IDENTITY_KEY)
 }
 
-const isRead = (value: unknown): value is ConnectorRead => typeof value === 'string' && value in CONNECTOR_LIFETIMES
+const READS: ReadonlySet<PersistedValue> = new Set(Object.keys(CONNECTOR_LIFETIMES))
 
-function size(value: unknown): number {
+function size(value: PersistedBlob | PersistedEntry): number {
   try {
     return JSON.stringify(value)?.length ?? 0
   } catch {
@@ -66,7 +68,7 @@ function size(value: unknown): number {
 function readBlob(scopeKey: string): PersistedBlob | null {
   const blob = readJson<PersistedBlob>(keyFor(scopeKey))
 
-  if (!blob || typeof blob !== 'object' || Array.isArray(blob)) {
+  if (!(blob instanceof Object) || Array.isArray(blob)) {
     return null
   }
 
@@ -109,21 +111,17 @@ export interface QuerySeed<T> {
   initialDataUpdatedAt?: number
 }
 
-export function seedOptions<T>(
-  scopeKey: ProfileScope | string,
-  read: PersistedRead,
-  slug?: string
-): QuerySeed<T> {
+export function seedOptions<T>(scopeKey: ProfileScope, read: PersistedRead, slug?: string): QuerySeed<T> {
   const identity = currentIdentity()
 
   if (identity === null) {
     return {}
   }
 
-  const blob = readBlob(typeof scopeKey === 'string' ? scopeKey : profileScopeKey(scopeKey))
+  const blob = readBlob(profileScopeKey(scopeKey))
   const entry = blob ? entryOf(blob, read, slug, identity) : undefined
 
-  if (!entry || typeof entry.at !== 'number' || entry.data === undefined || entry.data === null) {
+  if (!entry || !Number.isFinite(entry.at) || entry.data === undefined || entry.data === null) {
     return {}
   }
 
@@ -149,8 +147,7 @@ function trimmed(blob: PersistedBlob): PersistedBlob {
   return { ...blob, tools }
 }
 
-function store(scopeKey: string, read: PersistedRead, slug: string | undefined, data: unknown, at: number): void {
-  const entry: PersistedEntry = { at, data }
+function store(scopeKey: string, read: PersistedRead, slug: string | undefined, entry: PersistedEntry): void {
   const identity = currentIdentity()
 
   if (identity === null || !persists(read, identity) || size(entry) > PERSIST_MAX_BYTES) {
@@ -179,25 +176,31 @@ interface ReadTarget {
   slug: string | undefined
 }
 
+/* oxlint-disable anti-slop/no-runtime-typeof -- SAFETY: a react-query key is typed `readonly unknown[]`; this function is the one boundary that parses one into a ReadTarget. */
 function targetOf(queryKey: readonly unknown[]): null | ReadTarget {
   const [root, scopeKey, read, slug] = queryKey
 
-  if (root === MCP_CATALOG_KEY[0]) {
-    return typeof scopeKey === 'string' ? { read: 'bundled', scopeKey, slug: undefined } : null
-  }
-
-  if (root !== CONNECTORS_QUERY_ROOT || typeof scopeKey !== 'string' || !isRead(read)) {
+  if (typeof scopeKey !== 'string') {
     return null
   }
 
-  return { read, scopeKey, slug: typeof slug === 'string' ? slug : undefined }
+  if (root === MCP_CATALOG_KEY[0]) {
+    return { read: 'bundled', scopeKey, slug: undefined }
+  }
+
+  if (root !== CONNECTORS_QUERY_ROOT || !READS.has(read)) {
+    return null
+  }
+
+  // SAFETY: READS holds exactly the CONNECTOR_LIFETIMES keys, and `read` is one of them by the check above.
+  return { read: read as ConnectorRead, scopeKey, slug: typeof slug === 'string' ? slug : undefined }
 }
+/* oxlint-enable anti-slop/no-runtime-typeof */
 
 const WRITE_DELAY_MS = 500
 
 interface PendingWrite extends ReadTarget {
-  at: number
-  data: unknown
+  entry: PersistedEntry
 }
 
 export function startConnectorPersistence(): () => void {
@@ -209,8 +212,8 @@ export function startConnectorPersistence(): () => void {
     timer = null
 
     for (const [key, write] of pending) {
-      store(write.scopeKey, write.read, write.slug, write.data, write.at)
-      written.set(key, write.at)
+      store(write.scopeKey, write.read, write.slug, write.entry)
+      written.set(key, write.entry.at)
     }
 
     pending.clear()
@@ -234,7 +237,7 @@ export function startConnectorPersistence(): () => void {
       return
     }
 
-    pending.set(key, { ...target, at: dataUpdatedAt, data })
+    pending.set(key, { ...target, entry: { at: dataUpdatedAt, data } })
     timer ??= setTimeout(flush, WRITE_DELAY_MS)
   })
 
@@ -262,7 +265,7 @@ interface ServerSeed {
   name: string
 }
 
-function isSeed(value: unknown): value is ServerSeed {
+function isSeed(value: PersistedValue): value is ServerSeed {
   if (value === null || !(value instanceof Object)) {
     return false
   }
@@ -270,13 +273,14 @@ function isSeed(value: unknown): value is ServerSeed {
   // SAFETY: an object here; the two field checks below are what make it a ServerSeed.
   const seed = value as Partial<ServerSeed>
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- SAFETY: `seed` is a value read back from localStorage; this line is where it becomes a ServerSeed.
   return typeof seed.name === 'string' && typeof seed.enabled === 'boolean'
 }
 
 export function storeLocalServers(scope: ProfileScope, servers: readonly LocalServerInput[]): void {
   const seeds: ServerSeed[] = servers.map(({ enabled, name }) => ({ enabled, name }))
 
-  store(profileScopeKey(scope), 'servers', undefined, seeds, Date.now())
+  store(profileScopeKey(scope), 'servers', undefined, { at: Date.now(), data: seeds })
 }
 
 export function seedLocalServers(scope: ProfileScope): LocalServerInput[] {
