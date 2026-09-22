@@ -1,7 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { useState } from 'react'
 
-import type { ConnectorCardField } from '@/components/ui/connector-card'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import type { ProfileScope } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -21,30 +20,21 @@ import { openConnectorsAdmin } from './data/portal'
 import { type HostedConnectorsView, useConnectorTools } from './data/queries'
 import { bothWaysOn, localServerName } from './derive'
 import { ConnectorDialogMenu } from './dialog-menu'
+import { localResidencyWord } from './residency'
 import { HostedToolsPanel, LocalToolsPanel, orgDisabledCount } from './tools-panel'
 import type { ConnectorCardModel } from './types'
 
 export interface HostedConnectorDialogProps {
   card: ConnectorCardModel
-  /** A `connectors.connect` for this app is in flight. */
-  connectPending: boolean
   controller: McpServersController
-  /** The page's own hosted reads, passed down so the dialog never runs a second copy of them. */
   hosted: HostedConnectorsView
-  /** The bundled twin's credential fields, while its install still needs them. */
-  installFields?: readonly ConnectorCardField[]
-  installing: boolean
   onClose: () => void
   onConnect: () => void
   onDisconnect: () => void
-  /** Stop waiting: end the operation the connect element is showing. */
   onGiveUp: (opId: string) => void
-  onInstall: (env: Record<string, string>) => void
-  /** Re-mint the authorization, from the kebab or from a target's Try again. */
   onReconnect: () => void
   onRemoveServer: () => void
   onToggleForMe: (next: boolean) => void
-  /** The card's own verb, with the card's own handler. */
   onVerb: () => void
   profile: ProfileScope
   togglePending: boolean
@@ -52,16 +42,12 @@ export interface HostedConnectorDialogProps {
 
 export function HostedConnectorDialog({
   card,
-  connectPending,
   controller,
   hosted,
-  installFields,
-  installing,
   onClose,
   onConnect,
   onDisconnect,
   onGiveUp,
-  onInstall,
   onReconnect,
   onRemoveServer,
   onToggleForMe,
@@ -69,12 +55,11 @@ export function HostedConnectorDialog({
   profile,
   togglePending
 }: HostedConnectorDialogProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const tools = useConnectorTools(profile, card.slug, hosted.listSlugs.has(card.slug))
   const operation = accountOperationFor(useStore($accountOperations), card.slug)
   const [form, setForm] = useState<'hosted' | 'local'>('hosted')
 
-  // Both forms answer at once, so the column says which one it is reading.
   const both = bothWaysOn(card.ways)
 
   const hostedPanel = (
@@ -93,31 +78,22 @@ export function HostedConnectorDialog({
   )
 
   const element = stillOpen(operation) ? (
-    <ConnectElement
-      busy={connectPending}
-      onReissue={onReconnect}
-      onStopWaiting={() => onGiveUp(operation.opId)}
-      operation={operation}
-    />
+    <ConnectElement onStopWaiting={() => onGiveUp(operation.opId)} operation={operation} />
   ) : undefined
 
   return (
     <ConnectorDialog
       accountLabel={card.ways.hosted?.accountLabel}
       card={card}
-      connectedOn={formatDate(card.ways.hosted?.connectedAt)}
+      connectedOn={formatDate(card.ways.hosted?.connectedAt, locale)}
       connectElement={element}
-      installFields={installFields}
-      installing={installing}
       menu={<ConnectorDialogMenu onReconnect={onReconnect} onRefreshTools={tools.refresh} />}
       onAuthenticate={() => void controller.authenticate(localServerName(card))}
       onConnect={onConnect}
       onDisconnect={onDisconnect}
-      onInstall={onInstall}
       onOpenAdmin={() => void openConnectorsAdmin()}
       onOpenChange={next => {
         if (!next) {
-          // A settled operation would otherwise still own the column the next time the dialog opens.
           if (operation?.settled) {
             clearAccountOperation(operation.opId)
           }
@@ -141,7 +117,7 @@ export function HostedConnectorDialog({
                 onChange={setForm}
                 options={[
                   { id: 'hosted', label: t.connectorsPage.dialog.wayHosted },
-                  { id: 'local', label: t.connectorsPage.dialog.wayLocal }
+                  { id: 'local', label: localResidencyWord(t.connectorsPage) }
                 ]}
                 value={form}
               />
@@ -161,17 +137,16 @@ export function HostedConnectorDialog({
   )
 }
 
-/** An attempt still worth a line: one in flight, or one that ended without connecting. */
 function stillOpen(operation: AccountOperation | null): operation is AccountOperation {
   return operation !== null && (!operation.settled || !operation.targets.every(target => target.state === 'connected'))
 }
 
-const formatDate = (iso: string | undefined): string | undefined => {
+const formatDate = (iso: string | undefined, locale: string): string | undefined => {
   if (!iso) {
     return undefined
   }
 
   const at = new Date(iso)
 
-  return Number.isNaN(at.getTime()) ? undefined : at.toLocaleDateString()
+  return Number.isNaN(at.getTime()) ? undefined : at.toLocaleDateString(locale)
 }

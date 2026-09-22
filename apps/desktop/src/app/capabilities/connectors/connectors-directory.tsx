@@ -8,25 +8,21 @@ import { SegmentedControl } from '@/components/ui/segmented-control'
 import { useI18n } from '@/i18n'
 
 import { ConnectorRowCard } from './connector-row-card'
-import { EMPTY_CONNECTORS_FILTER } from './derive'
+import { cardKey, EMPTY_CONNECTORS_FILTER } from './derive'
 import { derivePage, showsAttentionFirst } from './derive-page'
+import { localResidencyWord } from './residency'
 import { ToolsWash } from './tools-status'
 import type { ConnectorCardModel, ConnectorGroupModel, ConnectorSegmentId, ConnectorsFilter } from './types'
 
-/** Two rows of two, so the groups below the Available shelf stay on screen. */
 const AVAILABLE_PREVIEW = 4
 
 export interface ConnectorsDirectoryProps {
-  /** The page action, top right. The wiring slice owns what it opens. */
   addYourOwn?: ReactNode
-  /** The app whose write is in flight, so its verb can say so. */
-  busySlug?: null | string
+  busyKey?: null | string
   cards: ConnectorCardModel[]
   filter: ConnectorsFilter
-  /** Only the hosted half failed. The servers on this Mac still render. */
   hostedFailed?: boolean
   loading?: boolean
-  /** The quiet lines about the hosted half, above the groups. The servers on this Mac render under them. */
   notices?: ReactNode
   onFilterChange: (next: ConnectorsFilter) => void
   onOpen: (card: ConnectorCardModel) => void
@@ -34,12 +30,12 @@ export interface ConnectorsDirectoryProps {
   onRetryHosted?: () => void
   onServerToggle?: (card: ConnectorCardModel, next: boolean) => void
   onVerb?: (card: ConnectorCardModel) => void
-  selectedSlug?: null | string
+  selectedKey?: null | string
 }
 
 export function ConnectorsDirectory({
   addYourOwn,
-  busySlug = null,
+  busyKey = null,
   cards,
   filter,
   hostedFailed = false,
@@ -51,19 +47,19 @@ export function ConnectorsDirectory({
   onRetryHosted,
   onServerToggle,
   onVerb,
-  selectedSlug = null
+  selectedKey = null
 }: ConnectorsDirectoryProps) {
   const { t } = useI18n()
   const copy = t.connectorsPage
+  const where = localResidencyWord(copy)
+  const segmentLabel = (id: ConnectorSegmentId) => (id === 'local' ? where : copy.segment[id])
   const set = (patch: Partial<ConnectorsFilter>) => onFilterChange({ ...filter, ...patch })
 
   const { groups, hiddenMatches, segment, segments } = derivePage(cards, filter)
 
-  // `All` plus one group is the same set twice, and that group's own header already carries the count.
   const showSegments = segments.length > 2
   const segmentFellBack = segments.length > 0 && segment !== filter.segment
 
-  // Available is a shelf only while other groups sit above it; alone, or under a search, it is the page.
   const truncateAvailable = groups.length > 1 && filter.query.trim() === ''
 
   return (
@@ -73,7 +69,6 @@ export function ConnectorsDirectory({
         {addYourOwn}
       </div>
 
-      {/* An empty list hides every control that can only narrow it back to the same nothing. */}
       {cards.length === 0 ? null : (
         <>
           <div className="flex shrink-0 items-center gap-3 border-b border-(--ui-stroke-tertiary) pb-1.5">
@@ -92,7 +87,7 @@ export function ConnectorsDirectory({
                   onChange={(next: ConnectorSegmentId) => set({ segment: next })}
                   options={segments.map(option => ({
                     id: option.id,
-                    label: `${copy.segment[option.id]} ${option.count}`
+                    label: `${segmentLabel(option.id)} ${option.count}`
                   }))}
                   value={segment}
                 />
@@ -100,7 +95,7 @@ export function ConnectorsDirectory({
 
               {segmentFellBack ? (
                 <span className="text-[0.7rem] text-(--ui-text-tertiary)">
-                  {copy.page.segmentNoMatch(copy.segment[filter.segment])}
+                  {copy.page.segmentNoMatch(segmentLabel(filter.segment))}
                 </span>
               ) : null}
 
@@ -134,24 +129,23 @@ export function ConnectorsDirectory({
       {loading ? (
         <ToolsWash label={copy.page.loading} rows={10} />
       ) : groups.length > 0 ? (
-        // `content-start`: without it the grid stretches its rows, and a card with one line becomes a tall box.
         <div className="grid min-h-0 flex-1 content-start gap-6 overflow-y-auto overscroll-contain pb-4">
           {groups.map(group => (
             <Group
-              busySlug={busySlug}
+              busyKey={busyKey}
               group={group}
               key={group.id}
               onOpen={onOpen}
               onPrefetch={onPrefetch}
               onServerToggle={onServerToggle}
               onVerb={onVerb}
-              selectedSlug={selectedSlug}
+              selectedKey={selectedKey}
               truncateAvailable={truncateAvailable}
+              where={where}
             />
           ))}
         </div>
       ) : cards.length === 0 ? (
-        // A failed hosted half cannot claim "nothing here yet": the banner above already says what happened.
         hostedFailed ? null : (
           <PanelEmpty action={addYourOwn} icon="plug" title={copy.page.emptyTitle} />
         )
@@ -175,23 +169,25 @@ export function ConnectorsDirectory({
 }
 
 function Group({
-  busySlug,
+  busyKey,
   group,
   onOpen,
   onPrefetch,
   onServerToggle,
   onVerb,
-  selectedSlug,
-  truncateAvailable
+  selectedKey,
+  truncateAvailable,
+  where
 }: {
-  busySlug: null | string
+  busyKey: null | string
   group: ConnectorGroupModel
   onOpen: (card: ConnectorCardModel) => void
   onPrefetch?: (card: ConnectorCardModel) => void
   onServerToggle?: (card: ConnectorCardModel, next: boolean) => void
   onVerb?: (card: ConnectorCardModel) => void
-  selectedSlug: null | string
+  selectedKey: null | string
   truncateAvailable: boolean
+  where: string
 }) {
   const { t } = useI18n()
   const copy = t.connectorsPage.group
@@ -202,7 +198,9 @@ function Group({
   return (
     <section className="grid gap-2">
       <header className="flex items-center gap-2">
-        <h3 className="text-xs font-semibold text-(--ui-text-primary)">{copy[group.id]}</h3>
+        <h3 className="text-xs font-semibold text-(--ui-text-primary)">
+          {group.id === 'local' ? where : copy[group.id]}
+        </h3>
         <span className="tabular-nums text-xs text-(--ui-text-tertiary)">{group.cards.length}</span>
 
         {group.id === 'connected' && showsAttentionFirst(group) ? <Note>{copy.connectedNote}</Note> : null}
@@ -216,18 +214,22 @@ function Group({
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {shown.map(card => (
-          <ConnectorRowCard
-            busy={busySlug === card.slug}
-            card={card}
-            key={`${card.residency}:${card.slug}`}
-            onOpen={() => onOpen(card)}
-            onPrefetch={onPrefetch ? () => onPrefetch(card) : undefined}
-            onServerToggle={onServerToggle ? next => onServerToggle(card, next) : undefined}
-            onVerb={onVerb ? () => onVerb(card) : undefined}
-            selected={selectedSlug === card.slug}
-          />
-        ))}
+        {shown.map(card => {
+          const key = cardKey(card)
+
+          return (
+            <ConnectorRowCard
+              busy={busyKey === key}
+              card={card}
+              key={key}
+              onOpen={() => onOpen(card)}
+              onPrefetch={onPrefetch ? () => onPrefetch(card) : undefined}
+              onServerToggle={onServerToggle ? next => onServerToggle(card, next) : undefined}
+              onVerb={onVerb ? () => onVerb(card) : undefined}
+              selected={selectedKey === key}
+            />
+          )
+        })}
       </div>
     </section>
   )

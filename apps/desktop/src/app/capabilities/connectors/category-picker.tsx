@@ -23,7 +23,6 @@ export function CategoryPicker({ categories, onChange, value }: CategoryPickerPr
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
 
-  // Radix closes only on an outside click or Escape, which would leave the panel over the rows it just filtered.
   const pick = (next: null | string) => {
     onChange(next)
     setOpen(false)
@@ -34,6 +33,7 @@ export function CategoryPicker({ categories, onChange, value }: CategoryPickerPr
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
         <button
+          aria-expanded={open}
           aria-haspopup="listbox"
           className={cn(controlVariants({ size: 'xs' }), 'flex w-auto items-center gap-1.5 whitespace-nowrap')}
           ref={trigger}

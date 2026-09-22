@@ -1,5 +1,3 @@
-// The directory's own shape: which group a card belongs to, and what one segment press will show.
-
 import type {
   ConnectorCardModel,
   ConnectorGroupId,
@@ -10,14 +8,14 @@ import type {
   ConnectorState
 } from './types'
 
-/** Attention sorts first inside Connected: it is the only thing here that stopped working on its own. */
 const STATE_RANK = {
-  available: 4,
+  available: 5,
   broken: 0,
-  connected: 3,
-  connecting: 2,
+  connected: 4,
+  connecting: 3,
   expired: 1,
-  off: 5
+  off: 6,
+  unknown: 2
 } satisfies Record<ConnectorState, number>
 
 const GROUP_OF = {
@@ -26,12 +24,12 @@ const GROUP_OF = {
   connected: 'connected',
   connecting: 'connected',
   expired: 'connected',
-  off: 'off'
+  off: 'off',
+  unknown: 'connected'
 } satisfies Record<ConnectorState, ConnectorGroupId>
 
 const GROUP_ORDER: readonly ConnectorGroupId[] = ['connected', 'local', 'available', 'off']
 
-/** The one classifier. Groups and segment counts both call it, so they cannot disagree. */
 export function groupIdOf(card: ConnectorCardModel): ConnectorGroupId {
   return card.residency === 'local' && card.state !== 'available' ? 'local' : GROUP_OF[card.state]
 }
@@ -70,7 +68,6 @@ export function showsAttentionFirst({ cards }: ConnectorGroupModel): boolean {
   return cards.length > 1 && cards.some(card => card.state === 'broken' || card.state === 'expired')
 }
 
-/** The search narrows first, so every segment count promises exactly what pressing it shows. */
 export function derivePage(
   cards: readonly ConnectorCardModel[],
   { query, segment }: ConnectorsFilter
@@ -84,14 +81,12 @@ export function derivePage(
     segments.push({ count: group.cards.length, id: group.id })
   }
 
-  // A segment with nothing in it is never drawn, so a search that empties the chosen one falls back to All.
   const shownSegment = segments.some(candidate => candidate.id === segment) ? segment : 'all'
   const chosen = shownSegment === 'all' ? groups : groups.filter(group => group.id === shownSegment)
   const shown = chosen.reduce((total, group) => total + group.cards.length, 0)
 
   return {
     groups: chosen,
-    // A search that found something the chosen segment hides says so; a bare segment press is not a surprise.
     hiddenMatches: shownSegment === 'all' || query.trim() === '' ? 0 : matches.length - shown,
     segment: shownSegment,
     segments

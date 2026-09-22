@@ -9,12 +9,14 @@ import { tagCopy, vocabularyTag } from './hint-vocabulary'
 import { freshnessLabel } from './tools-filter-bar'
 import type { FacetSummaryRow, ToolsFreshness } from './types'
 
-/** Module state, so reopening a dialog shows the choice the person last made. */
 const OPENED = new Set<string>()
 
-/** A link that names a tool: that list is already open the first time it renders. */
 export function openToolsList(listKey: string): void {
   OPENED.add(listKey)
+}
+
+export function resetOpenedTools(): void {
+  OPENED.clear()
 }
 
 export function useShowAllTools(key: string, forced: boolean) {
@@ -25,7 +27,6 @@ export function useShowAllTools(key: string, forced: boolean) {
     setChoice({ key, open: true })
   }, [key])
 
-  // The disclosure goes both ways, and the remembered choice goes with it.
   const hide = useCallback(() => {
     OPENED.delete(key)
     setChoice({ key, open: false })
@@ -50,10 +51,9 @@ export interface ToolsSummaryProps {
   onRefresh: () => void
   onShowAll: () => void
   onToggleFacet: (facet: string, on: boolean) => void
-  /** No account: the rows say what the app would bring, with nothing to switch. */
   preview: boolean
-  /** The rules cannot be written, so every switch here says what is on and nothing more. */
   readOnly: boolean
+  refreshing?: boolean
   rows: FacetSummaryRow[]
   total: number
 }
@@ -66,6 +66,7 @@ export function ToolsSummary({
   onToggleFacet,
   preview,
   readOnly,
+  refreshing = false,
   rows,
   total
 }: ToolsSummaryProps) {
@@ -85,7 +86,6 @@ export function ToolsSummary({
 
       <ul className="grid">
         {rows.map(row => {
-          // A server that classes none of its tools gets one plain row, never a row named after the gap.
           const unclassed = row.facet === 'unclassified'
           const alone = unclassed && rows.length === 1
 
@@ -133,8 +133,14 @@ export function ToolsSummary({
           </span>
         ) : null}
 
-        <Button className={freshness ? 'shrink-0' : 'ml-auto shrink-0'} onClick={onRefresh} size="xs" variant="text">
-          {copy.refresh}
+        <Button
+          className={freshness ? 'shrink-0' : 'ml-auto shrink-0'}
+          disabled={refreshing}
+          onClick={onRefresh}
+          size="xs"
+          variant="text"
+        >
+          {refreshing ? copy.refreshing : copy.refresh}
         </Button>
       </div>
     </div>

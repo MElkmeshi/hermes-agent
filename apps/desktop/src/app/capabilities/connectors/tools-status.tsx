@@ -5,7 +5,6 @@ import type { Translations } from '@/i18n/types'
 
 import type { ConflictDifference, ToolsEditorPhase } from './types'
 
-/** A static wash, not a shimmer loop: nothing repaints by itself, so an animation would promise progress. */
 export function ToolsWash({ label, rows = 8 }: { label?: string; rows?: number }) {
   const { t } = useI18n()
 
@@ -17,7 +16,6 @@ export function ToolsWash({ label, rows = 8 }: { label?: string; rows?: number }
           aria-hidden
           className="h-3 rounded-sm bg-(--ui-bg-quaternary)"
           key={index}
-          // A wash, not a bar chart: the widths only stop the block reading as a solid rectangle.
           style={{ width: `${68 - (index % 4) * 9}%` }}
         />
       ))}
@@ -43,8 +41,9 @@ interface StatusView {
   title: (copy: ToolsCopy, context: StatusContext) => string
 }
 
-const STATUS: Record<ToolsStatusPhase, StatusView> = {
-  // The lost race: nothing merged and nothing was written, so neither way out is the default.
+type StatusTable = { readonly [phase in ToolsStatusPhase]: StatusView }
+
+const STATUS: StatusTable = {
   conflict: {
     actions: [
       { id: 'reload', label: copy => copy.tools.conflictReload, variant: 'secondary' },
@@ -60,14 +59,12 @@ const STATUS: Record<ToolsStatusPhase, StatusView> = {
     icon: 'circle-slash',
     title: (copy, { connectorName }) => copy.goneTitle(connectorName)
   },
-  // The column beside this panel holds the server's one Sign in button, so this state offers nothing.
   needsAuth: {
     actions: [],
     body: copy => copy.needsAuthBody,
     icon: 'key',
     title: (copy, { connectorName }) => copy.needsAuthTitle(connectorName)
   },
-  // The server's own switch is in the dialog header, so this state names itself and offers nothing.
   off: {
     actions: [],
     body: copy => copy.offBody,

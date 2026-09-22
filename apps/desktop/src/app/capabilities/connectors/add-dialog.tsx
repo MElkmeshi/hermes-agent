@@ -1,5 +1,3 @@
-// `Add your own`: one job, a server that is in no list. The bundled entries are cards on the page.
-
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { useI18n } from '@/i18n'
 

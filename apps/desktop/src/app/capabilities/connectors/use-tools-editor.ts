@@ -1,5 +1,3 @@
-// No RPC lives here.
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
@@ -20,19 +18,15 @@ import type {
   ToolsEditorStatus
 } from './types'
 
-/** `failed` leaves the editor dirty and the work on screen; only `saved` moves the baseline. */
 export type SaveResult = 'conflict' | 'failed' | 'saved'
 
-/** `overwrite` travels with the list: a compare-and-set write cannot tell one from a second losing attempt. */
 export interface SaveOptions {
   overwrite: boolean
 }
 
 export interface UseToolsEditorOptions {
-  /** The connector slug, usually. Two connectors can share a saved rule, so the rule alone is not an identity. */
   editorKey?: string
   onSave: (disabled: string[], options: SaveOptions) => Promise<SaveResult>
-  /** The saved personal rule. A different list is a different editor, and the hook reloads against it. */
   savedDisabled: readonly string[]
   status?: ToolsEditorStatus | null
   tools: readonly ToolRowModel[]
@@ -41,18 +35,15 @@ export interface UseToolsEditorOptions {
 export interface ToolsEditor {
   applyQuickAction: (id: QuickActionId) => void
   counts: ToolsEditorCounts
-  /** Which quick action the current list matches, if any. */
   currentAction: QuickAction | null
   dirty: boolean
   discard: () => void
   isOn: (slug: string) => boolean
-  /** Keeps this editor's work after a conflict and writes it: the button says "Save over their version". */
   keepMine: () => Promise<SaveResult>
   local: string[]
   phase: ToolsEditorPhase
   save: () => Promise<SaveResult>
   toggle: (slug: string) => void
-  /** One facet's whole switchable set, as the tools summary writes it. */
   toggleFacet: (facet: string, on: boolean) => void
 }
 
@@ -66,11 +57,9 @@ export function useToolsEditor({
   const [local, setLocal] = useState<string[]>([...savedDisabled])
   const [baseline, setBaseline] = useState<string[]>([...savedDisabled])
   const [editing, setEditing] = useState<'conflict' | 'ready' | 'saving'>('ready')
-  /** Remembered rather than re-derived: two actions can expand to the same list. */
   const [pressed, setPressed] = useState<QuickActionId | null>(null)
   const [overwrite, setOverwrite] = useState(false)
 
-  // Keyed on the saved rule's CONTENT, so a caller that rebuilds the array every render keeps the edit.
   const savedKey = `${editorKey ?? ''}\u0000${[...savedDisabled].sort().join('\u0000')}`
 
   useEffect(() => {
@@ -90,7 +79,6 @@ export function useToolsEditor({
 
   const toggle = useCallback(
     (slug: string) => {
-      // A locked row has no switch, and refusing here stops a stray keyboard event writing the org's rule.
       if (byslug.get(slug)?.lockedBy) {
         return
       }
@@ -115,7 +103,6 @@ export function useToolsEditor({
     [tools]
   )
 
-  /** A quick action rewrites only the part of the list it owns, `Everything on` included. */
   const applyQuickAction = useCallback(
     (id: QuickActionId) => {
       const action = quickActionById(id)
@@ -125,7 +112,6 @@ export function useToolsEditor({
         const kept = previous.filter(slug => {
           const tool = byslug.get(slug)
 
-          // `expandQuickAction` will not put an org-locked slug back, so dropping it here would report it "back on".
           return tool !== undefined && (isUntouchedByQuickActions(tool) || tool.lockedBy !== null)
         })
 
@@ -142,7 +128,6 @@ export function useToolsEditor({
     setOverwrite(false)
   }, [baseline])
 
-  /** One writer, so a press and a write can never disagree about the flag. */
   const write = useCallback(
     async (asOverwrite: boolean) => {
       setEditing('saving')
@@ -161,7 +146,6 @@ export function useToolsEditor({
     [local, onSave]
   )
 
-  /** Nothing merges: this writes over the version the other editor left. */
   const keepMine = useCallback(() => {
     setOverwrite(true)
 
@@ -184,7 +168,6 @@ export function useToolsEditor({
     isOn,
     keepMine,
     local,
-    // A failed fetch replaces the whole right column, so it outranks whatever the editor is doing.
     phase: status ?? editing,
     save,
     toggle,

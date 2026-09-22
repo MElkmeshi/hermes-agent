@@ -1,5 +1,3 @@
-// The last page the person saw, kept across a restart so a cold start paints before the network answers.
-
 import { type ProfileScope, profileScopeKey } from '@/hermes'
 import { queryClient } from '@/lib/query-client'
 import { readJson, writeJson } from '@/lib/storage'
@@ -10,19 +8,26 @@ import type { LocalServerInput } from '../types'
 
 import { CONNECTOR_LIFETIMES, type ConnectorRead, CONNECTORS_QUERY_ROOT } from './keys'
 
-/** `bundled` sits outside this page's key space and `servers` rides no query at all, yet the page paints from both. */
 export type PersistedRead = 'bundled' | 'servers' | ConnectorRead
 
-const persists = (read: PersistedRead): boolean =>
-  read === 'bundled' || read === 'servers' || CONNECTOR_LIFETIMES[read].persist
+const persists = (read: PersistedRead, identity: PersistedIdentity): boolean => {
+  if (identity === 'signed-in' && ACCOUNT_READS.has(read)) {
+    return false
+  }
 
-const STORAGE_PREFIX = 'hermes.connectors.v1.'
+  return read === 'bundled' || read === 'servers' || CONNECTOR_LIFETIMES[read].persist
+}
 
-/** The atom behind it is filled by an async boot read, so the last answer is mirrored where the first frame sees it. */
-const IDENTITY_KEY = 'hermes.connectors.identity.v1'
+const STORAGE_PREFIX = 'hermes.connectors.v2.'
 
-/** Sixty apps with a sixty-tool list each would pass the origin's quota; the oldest lists go first. */
+const IDENTITY_KEY = 'hermes.connectors.identity.v2'
+
 const PERSIST_MAX_BYTES = 256 * 1024
+
+type PersistedIdentity = 'guest' | 'signed-in'
+
+// The renderer can read no subject for a signed-in account, so nothing an account owns is kept.
+const ACCOUNT_READS: ReadonlySet<PersistedRead> = new Set<PersistedRead>(['catalog', 'list', 'tools'])
 
 interface PersistedEntry {
   at: number
@@ -32,8 +37,7 @@ interface PersistedEntry {
 interface PersistedBlob {
   bundled?: PersistedEntry
   catalog?: PersistedEntry
-  /** The identity the reads ran under, so one profile cannot paint the previous account's apps. */
-  freeTier: boolean
+  identity: PersistedIdentity
   list?: PersistedEntry
   servers?: PersistedEntry
   tools?: Record<string, PersistedEntry>
@@ -41,8 +45,13 @@ interface PersistedBlob {
 
 const keyFor = (scopeKey: string) => `${STORAGE_PREFIX}${scopeKey}`
 
-/** `null` while nothing has ever answered; the page then keeps no cache rather than a shared one. */
-const currentIdentity = (): boolean | null => $freeTierStatus.get()?.has_guest ?? readJson<boolean>(IDENTITY_KEY)
+const identityOf = (hasGuest: boolean): PersistedIdentity => (hasGuest ? 'guest' : 'signed-in')
+
+function currentIdentity(): PersistedIdentity | null {
+  const status = $freeTierStatus.get()
+
+  return status ? identityOf(status.has_guest) : readJson<PersistedIdentity>(IDENTITY_KEY)
+}
 
 const isRead = (value: unknown): value is ConnectorRead => typeof value === 'string' && value in CONNECTOR_LIFETIMES
 
@@ -61,7 +70,7 @@ function readBlob(scopeKey: string): PersistedBlob | null {
     return null
   }
 
-  return blob.freeTier === currentIdentity() ? blob : null
+  return blob.identity === currentIdentity() ? blob : null
 }
 
 const SLOTS = {
@@ -73,31 +82,55 @@ const SLOTS = {
 
 type SlotRead = keyof typeof SLOTS
 
-function entryOf(blob: PersistedBlob, read: PersistedRead, slug: string | undefined): PersistedEntry | undefined {
+function entryOf(
+  blob: PersistedBlob,
+  read: PersistedRead,
+  slug: string | undefined,
+  identity: PersistedIdentity
+): PersistedEntry | undefined {
+  if (!persists(read, identity)) {
+    return undefined
+  }
+
   if (read === 'tools') {
     return slug ? blob.tools?.[slug] : undefined
   }
 
-  return read in SLOTS ? (blob[SLOTS[read as SlotRead]] as PersistedEntry | undefined) : undefined
+  if (!(read in SLOTS)) {
+    return undefined
+  }
+
+  // SAFETY: guarded by `read in SLOTS` on the line above, and every slot holds a PersistedEntry.
+  return blob[SLOTS[read as SlotRead]] as PersistedEntry | undefined
 }
 
-/** Seed one query from storage at the blob's real age, so TanStack paints it at once. */
+export interface QuerySeed<T> {
+  initialData?: T
+  initialDataUpdatedAt?: number
+}
+
 export function seedOptions<T>(
   scopeKey: ProfileScope | string,
   read: PersistedRead,
   slug?: string
-): { initialData?: T; initialDataUpdatedAt?: number } {
+): QuerySeed<T> {
+  const identity = currentIdentity()
+
+  if (identity === null) {
+    return {}
+  }
+
   const blob = readBlob(typeof scopeKey === 'string' ? scopeKey : profileScopeKey(scopeKey))
-  const entry = blob ? entryOf(blob, read, slug) : undefined
+  const entry = blob ? entryOf(blob, read, slug, identity) : undefined
 
   if (!entry || typeof entry.at !== 'number' || entry.data === undefined || entry.data === null) {
     return {}
   }
 
+  // SAFETY: the caller names the read whose answer it stored, so the entry holds that read's own result.
   return { initialData: entry.data as T, initialDataUpdatedAt: entry.at }
 }
 
-/** Drop the oldest tool lists until the whole blob fits the budget. */
 function trimmed(blob: PersistedBlob): PersistedBlob {
   let tools = blob.tools
 
@@ -120,12 +153,11 @@ function store(scopeKey: string, read: PersistedRead, slug: string | undefined, 
   const entry: PersistedEntry = { at, data }
   const identity = currentIdentity()
 
-  // An unstamped blob would be readable by whoever signs in next, so nothing is kept until one is known.
-  if (identity === null || size(entry) > PERSIST_MAX_BYTES) {
+  if (identity === null || !persists(read, identity) || size(entry) > PERSIST_MAX_BYTES) {
     return
   }
 
-  const blob = readBlob(scopeKey) ?? { freeTier: identity }
+  const blob = readBlob(scopeKey) ?? { identity }
 
   if (read === 'tools') {
     if (!slug) {
@@ -134,10 +166,11 @@ function store(scopeKey: string, read: PersistedRead, slug: string | undefined, 
 
     blob.tools = { ...blob.tools, [slug]: entry }
   } else {
+    // SAFETY: `read` is not 'tools' here, and every other PersistedRead has a slot.
     blob[SLOTS[read as SlotRead]] = entry
   }
 
-  writeJson(keyFor(scopeKey), trimmed({ ...blob, freeTier: identity }))
+  writeJson(keyFor(scopeKey), trimmed({ ...blob, identity }))
 }
 
 interface ReadTarget {
@@ -160,8 +193,29 @@ function targetOf(queryKey: readonly unknown[]): null | ReadTarget {
   return { read, scopeKey, slug: typeof slug === 'string' ? slug : undefined }
 }
 
-/** Subscribe the query cache. Called once, from the page's mount effect; returns the unsubscribe. */
+const WRITE_DELAY_MS = 500
+
+interface PendingWrite extends ReadTarget {
+  at: number
+  data: unknown
+}
+
 export function startConnectorPersistence(): () => void {
+  const pending = new Map<string, PendingWrite>()
+  const written = new Map<string, number>()
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const flush = () => {
+    timer = null
+
+    for (const [key, write] of pending) {
+      store(write.scopeKey, write.read, write.slug, write.data, write.at)
+      written.set(key, write.at)
+    }
+
+    pending.clear()
+  }
+
   const stopCache = queryClient.getQueryCache().subscribe(event => {
     if (event.type !== 'updated' || event.action.type !== 'success') {
       return
@@ -170,52 +224,61 @@ export function startConnectorPersistence(): () => void {
     const target = targetOf(event.query.queryKey)
     const { data, dataUpdatedAt } = event.query.state
 
-    if (!target || !persists(target.read) || data === undefined) {
+    if (!target || data === undefined) {
       return
     }
 
-    store(target.scopeKey, target.read, target.slug, data, dataUpdatedAt)
+    const key = `${target.scopeKey}\u0000${target.read}\u0000${target.slug ?? ''}`
+
+    if (written.get(key) === dataUpdatedAt) {
+      return
+    }
+
+    pending.set(key, { ...target, at: dataUpdatedAt, data })
+    timer ??= setTimeout(flush, WRITE_DELAY_MS)
   })
 
   const stopIdentity = $freeTierStatus.listen(status => {
-    if (status && status.has_guest !== readJson<boolean>(IDENTITY_KEY)) {
-      writeJson(IDENTITY_KEY, status.has_guest)
+    const identity = status ? identityOf(status.has_guest) : null
+
+    if (identity !== null && identity !== readJson<PersistedIdentity>(IDENTITY_KEY)) {
+      writeJson(IDENTITY_KEY, identity)
     }
   })
 
   return () => {
     stopCache()
     stopIdentity()
+
+    if (timer !== null) {
+      clearTimeout(timer)
+      flush()
+    }
   }
 }
 
-/** What a server is, before anything has probed it. No target and no probe result: both would age badly. */
 interface ServerSeed {
-  description?: string
   enabled: boolean
-  hostedSlug?: string
   name: string
 }
 
-const isSeed = (value: unknown): value is ServerSeed =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as ServerSeed).name === 'string' &&
-  typeof (value as ServerSeed).enabled === 'boolean'
+function isSeed(value: unknown): value is ServerSeed {
+  if (value === null || !(value instanceof Object)) {
+    return false
+  }
 
-/** The servers come from the config read, not from a query, so the page hands them over itself. */
+  // SAFETY: an object here; the two field checks below are what make it a ServerSeed.
+  const seed = value as Partial<ServerSeed>
+
+  return typeof seed.name === 'string' && typeof seed.enabled === 'boolean'
+}
+
 export function storeLocalServers(scope: ProfileScope, servers: readonly LocalServerInput[]): void {
-  const seeds: ServerSeed[] = servers.map(({ description, enabled, hostedSlug, name }) => ({
-    description,
-    enabled,
-    hostedSlug,
-    name
-  }))
+  const seeds: ServerSeed[] = servers.map(({ enabled, name }) => ({ enabled, name }))
 
   store(profileScopeKey(scope), 'servers', undefined, seeds, Date.now())
 }
 
-/** The last known servers, as cards the first probe then refines. */
 export function seedLocalServers(scope: ProfileScope): LocalServerInput[] {
   const { initialData } = seedOptions<unknown>(scope, 'servers')
 
@@ -226,7 +289,6 @@ export function seedLocalServers(scope: ProfileScope): LocalServerInput[] {
   return initialData.filter(isSeed).map(seed => ({ ...seed, status: 'unknown', target: '' }))
 }
 
-/** Drop everything stored for one profile. */
 export function clearPersisted(scope: ProfileScope): void {
   writeJson(keyFor(profileScopeKey(scope)), null)
 }

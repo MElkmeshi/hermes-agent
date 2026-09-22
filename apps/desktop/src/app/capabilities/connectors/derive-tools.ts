@@ -1,5 +1,3 @@
-// The pure layer inside an opened connector: filtering, counting and the quick actions.
-
 import { FACET_ORDER, HINT_ORDER } from './hint-vocabulary'
 import type {
   ConflictDifference,
@@ -13,10 +11,8 @@ import type {
   ToolsFilter
 } from './types'
 
-/** A sentinel, not the word: it travels as a select VALUE beside real provider tags and must not collide. */
 export const UNCATEGORISED = '__uncategorised__'
 
-/** Under this many tools, the chrome costs more than reading the whole list. */
 export const TINY_CONNECTOR_MAX = 8
 
 export const EMPTY_TOOLS_FILTER: ToolsFilter = {
@@ -27,12 +23,10 @@ export const EMPTY_TOOLS_FILTER: ToolsFilter = {
   showDeprecated: false
 }
 
-/** Small enough to drop search, chips, the select and the quick actions. Derived, never switched on. */
 export function isTinyConnector(tools: readonly ToolRowModel[]): boolean {
   return tools.length <= TINY_CONNECTOR_MAX
 }
 
-/** An MCP server names its tools with identifiers; a row prints words. The slug stays the wire value. */
 export function toolDisplayName(slug: string): string {
   const words = slug
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -42,7 +36,6 @@ export function toolDisplayName(slug: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** Tags are shown as words, and the raw tag stays the filter value, so matching still speaks the wire. */
 export function categoryLabel(name: string): string {
   return name.replace(/_/g, ' ')
 }
@@ -51,7 +44,6 @@ export function toolInCategory(tool: ToolRowModel, category: string): boolean {
   return category === UNCATEGORISED ? tool.categories.length === 0 : tool.categories.includes(category)
 }
 
-/** No debounce: the list is already in memory, so a delay would only make typing feel slower. */
 export function toolMatchesQuery(tool: ToolRowModel, query: string): boolean {
   const needle = query.trim().toLowerCase()
 
@@ -104,17 +96,14 @@ export function facetCounts(tools: readonly ToolRowModel[]): CountedValue[] {
   )
 }
 
-/** A lone chip filters to the list you are already looking at, so one chip is no chip. */
 export function facetChips(tools: readonly ToolRowModel[]): CountedValue[] {
   const counts = facetCounts(tools)
 
   return counts.length >= 2 ? counts : []
 }
 
-/** Two hints that only restate the facet beside them. They keep their words everywhere else. */
 const FACET_ECHO_HINTS: readonly string[] = ['destructiveHint', 'readOnlyHint']
 
-/** Hint chips filter too, so they follow the same "only when it narrows" rule. */
 export function hintChips(tools: readonly ToolRowModel[]): CountedValue[] {
   const counts = ordered(
     countBy(tools, tool => tool.hints.filter(hint => !FACET_ECHO_HINTS.includes(hint))),
@@ -124,7 +113,6 @@ export function hintChips(tools: readonly ToolRowModel[]): CountedValue[] {
   return counts.length >= 2 ? counts : []
 }
 
-/** An `Uncategorised` bucket only when the connector has categories and some tools have none. */
 export function categoryCounts(tools: readonly ToolRowModel[]): CountedValue[] {
   const counts = countBy(tools, tool => tool.categories)
 
@@ -145,19 +133,13 @@ export function deprecatedCount(tools: readonly ToolRowModel[]): number {
   return tools.filter(tool => tool.deprecated).length
 }
 
-// ------------------------------------------------------------ the tool read
-
 export interface ToolReadInput {
-  /** The query already holds a list, fresh or persisted. */
   hasData: boolean
-  /** `connectors.list` still carries this app. */
   listHasApp: boolean
   pending: boolean
-  /** The typed failure reason, or null when the read succeeded. */
   reason: null | string
 }
 
-/** "Left the catalog" is a verdict about the APP, so it needs the portal's answer AND a dropped app. */
 export function toolReadStatus({ hasData, listHasApp, pending, reason }: ToolReadInput): ToolsEditorStatus | null {
   if (reason === 'CONNECTOR_NOT_FOUND') {
     return listHasApp ? 'unavailable' : 'gone'
@@ -174,20 +156,15 @@ export function toolReadStatus({ hasData, listHasApp, pending, reason }: ToolRea
   return pending ? 'loading' : null
 }
 
-// ------------------------------------------------------------ the facet summary
-
-/** The slugs one facet's switch writes: switchable, not deprecated, not org-locked. */
 export function facetTools(tools: readonly ToolRowModel[], facet: string): string[] {
   return tools.filter(tool => tool.facet === facet && !tool.deprecated && tool.lockedBy === null).map(tool => tool.slug)
 }
 
-/** One row per facet that has tools; deprecated tools are counted nowhere, so the two lists agree. */
 export function facetSummary(tools: readonly ToolRowModel[], isOn: (slug: string) => boolean): FacetSummaryRow[] {
   const live = tools.filter(tool => !tool.deprecated)
 
   return facetCounts(live).map(({ count, value }) => {
     const on = live.filter(tool => tool.facet === value && isOn(tool.slug)).length
-    // An org-locked tool can never read as on, so the switch answers for the tools it actually writes.
     const switchable = facetTools(live, value).length
 
     return {
@@ -206,16 +183,12 @@ const plainWords = (value: string) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
-/** True when the description adds nothing the name already says, so the row has no expander. */
 export function describesNothingNew(tool: ToolRowModel): boolean {
   const description = plainWords(tool.description)
 
   return description === '' || description === plainWords(tool.name)
 }
 
-// ------------------------------------------------------------ quick actions
-
-/** Precedence for de-duplication, not display order: when two expand to the same list, the earlier wins. */
 export const QUICK_ACTIONS = [
   { facets: ['destructive'], id: 'no-destructive' },
   { facets: ['destructive', 'write'], id: 'read-only' },
@@ -228,12 +201,10 @@ export function quickActionById(id: QuickActionId): QuickAction {
   return QUICK_ACTIONS.find(action => action.id === id)!
 }
 
-/** No behaviour hint, or deprecated: a quick action leaves both exactly as the person left them. */
 export function isUntouchedByQuickActions(tool: ToolRowModel): boolean {
   return tool.deprecated || tool.facet === 'unclassified'
 }
 
-/** Org-locked tools are excluded with the untouchable ones: a personal rule must not restate the org's. */
 export function expandQuickAction(action: QuickAction, tools: readonly ToolRowModel[]): string[] {
   return tools
     .filter(tool => !isUntouchedByQuickActions(tool) && action.facets.includes(tool.facet) && tool.lockedBy === null)
@@ -250,7 +221,6 @@ export function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return b.every(value => seen.has(value))
 }
 
-/** An action that expands to nothing, or to what a listed one already does, is left out. */
 export function availableQuickActions(tools: readonly ToolRowModel[]): QuickAction[] {
   const taken: string[][] = []
   const out: QuickAction[] = []
@@ -275,7 +245,6 @@ export function availableQuickActions(tools: readonly ToolRowModel[]): QuickActi
   return out.sort((a, b) => QUICK_ACTION_DISPLAY.indexOf(a.id) - QUICK_ACTION_DISPLAY.indexOf(b.id))
 }
 
-/** `prefer` is the id the person pressed: two actions can expand to the same list. */
 export function matchingQuickAction(
   disabled: readonly string[],
   tools: readonly ToolRowModel[],
@@ -292,7 +261,6 @@ export function matchingQuickAction(
   const matches = QUICK_ACTIONS.filter(action => {
     const expansion = expandQuickAction(action, tools)
 
-    // An empty expansion means Everything on; for a narrowing action it means this connector has no such tools.
     return action.id === 'everything-on'
       ? comparable.length === 0
       : expansion.length > 0 && sameSet(comparable, expansion)
@@ -305,9 +273,6 @@ export function matchingQuickAction(
   return matches.find(action => action.id === prefer) ?? matches[0]
 }
 
-// ------------------------------------------------------------ editor counts
-
-/** A delta, not a total: the person is about to write a change, and the change is what they check. */
 export function editorCounts(local: readonly string[], baseline: readonly string[]): ToolsEditorCounts {
   const before = new Set(baseline)
   const after = new Set(local)
@@ -318,7 +283,6 @@ export function editorCounts(local: readonly string[], baseline: readonly string
   }
 }
 
-/** "Keep mine" is an overwrite, so the reader is entitled to know what it costs before pressing it. */
 export function conflictDifference(theirs: readonly string[], mine: readonly string[]): ConflictDifference {
   const mineSet = new Set(mine)
   const theirSet = new Set(theirs)
@@ -329,7 +293,6 @@ export function conflictDifference(theirs: readonly string[], mine: readonly str
   }
 }
 
-/** Wire tools plus the two policy lists become the rows the editor renders. */
 export function toolRows(
   tools: readonly ToolInput[],
   disabled: ReadonlySet<string>,

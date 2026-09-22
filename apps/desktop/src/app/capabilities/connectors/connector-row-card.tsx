@@ -9,23 +9,17 @@ import { cn } from '@/lib/utils'
 
 import { CatalogMark } from './catalog-mark'
 import { twinPillOf } from './derive'
-import type { ConnectorAuthType, ConnectorCardModel, ConnectorFact, ConnectorState } from './types'
+import { localResidencyWord } from './residency'
+import type { ConnectorCardModel, ConnectorFact, ConnectorState } from './types'
 
-/** What a bundled entry will ask for at install: its one fact, in place of a state nobody has set yet. */
-const AUTH_WORDS = {
-  apiKey: 'authApiKey',
-  none: null,
-  oauth: 'authOauth'
-} satisfies Record<ConnectorAuthType, 'authApiKey' | 'authOauth' | null>
-
-/** Only the three states that cost the person something are coloured. */
 const STATE_DOT = {
   available: 'bg-(--ui-text-quaternary)',
   broken: 'bg-(--ui-red)',
   connected: 'bg-(--ui-green)',
   connecting: 'bg-(--ui-yellow)',
   expired: 'bg-(--ui-orange)',
-  off: 'bg-(--ui-text-quaternary)'
+  off: 'bg-(--ui-text-quaternary)',
+  unknown: 'bg-(--ui-text-quaternary)'
 } satisfies Record<ConnectorState, string>
 
 const REASON_TONE = {
@@ -34,7 +28,8 @@ const REASON_TONE = {
   connected: '',
   connecting: 'text-(--ui-text-secondary)',
   expired: 'text-(--ui-orange)',
-  off: ''
+  off: '',
+  unknown: ''
 } satisfies Record<ConnectorState, string>
 
 function factText(copy: Translations['connectorsPage']['card'], fact: ConnectorFact): string {
@@ -54,16 +49,12 @@ function factText(copy: Translations['connectorsPage']['card'], fact: ConnectorF
 }
 
 export interface ConnectorRowCardProps {
-  /** The card paints nothing before the backend answers, so the verb says it is busy instead. */
   busy?: boolean
   card: ConnectorCardModel
   onOpen: () => void
-  /** Pointer or keyboard has reached this card: fetch what its dialog will need. */
   onPrefetch?: () => void
-  /** Local cards only: the dialog is never needed to turn a server off. */
   onServerToggle?: (next: boolean) => void
   onVerb?: () => void
-  /** The card whose dialog is open, highlighted behind it. */
   selected?: boolean
 }
 
@@ -79,18 +70,9 @@ export function ConnectorRowCard({
   const { t } = useI18n()
   const copy = t.connectorsPage.card
   const local = card.residency === 'local'
-  const server = card.ways.local
-  const offered = local && server?.installed === false ? server : undefined
-  const authWord = offered?.authType ? AUTH_WORDS[offered.authType] : null
-  // Nothing is set up yet, so the lane holds the one fact that tells these cards apart: the sign-in it asks for.
   const unset = card.state === 'available'
 
-  // A working server says how much of itself is live where a hosted app says "Connected".
-  const stateLabel = unset
-    ? authWord && copy[authWord]
-    : local && card.fact
-      ? factText(copy, card.fact)
-      : copy.state[card.stateWord]
+  const stateLabel = local && card.fact ? factText(copy, card.fact) : copy.state[card.stateWord]
 
   const reason = card.reason ? (card.reason.text ?? copy.reason[card.reason.key]) : undefined
   const twin = twinPillOf(card)
@@ -114,9 +96,7 @@ export function ConnectorRowCard({
       />
 
       <div className="grid min-w-0 flex-1 gap-0.5">
-        {/* Wrapping, not squeezing: at a laptop width the pill drops to its own line and the name stays whole. */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-          {/* The name's pseudo element covers the card, so the row is clickable without a nested button. */}
           <button
             className="min-w-0 truncate text-[0.8125rem] font-semibold text-(--ui-text-primary) outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-[0.1875rem] focus-visible:after:ring-ring/50"
             onClick={onOpen}
@@ -127,14 +107,14 @@ export function ConnectorRowCard({
           </button>
 
           <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">
-            {local ? copy.localResidency : copy.hosted}
+            {local ? localResidencyWord(t.connectorsPage) : copy.hosted}
           </span>
 
           {card.inCatalog ? <CatalogMark /> : null}
 
           {twin ? (
             <Badge className="shrink-0" size="xs" variant="muted">
-              {twin === 'hostedTwin' ? copy.hostedTwin : copy.alsoLocal}
+              {copy.hostedTwin}
             </Badge>
           ) : null}
         </div>
@@ -142,56 +122,79 @@ export function ConnectorRowCard({
         <SecondLine card={card} reason={reason} />
       </div>
 
-      <div className="relative z-10 flex w-[7.75rem] shrink-0 flex-col items-end gap-1">
-        {stateLabel ? (
-          <span className="flex items-center gap-1.5 text-[0.6875rem] text-(--ui-text-secondary)">
-            {/* Nothing has been set up yet, so a dot here would colour a state nobody has reached. */}
-            {unset ? null : (
-              <span aria-hidden className={cn('size-[5px] shrink-0 rounded-full', STATE_DOT[card.state])} />
-            )}
-            <span className="truncate">{stateLabel}</span>
-          </span>
-        ) : null}
-
-        {/* A column, not a slot: a server that needs signing in carries BOTH its switch and its repair. */}
-        {local && server?.installed === true && onServerToggle ? (
-          <Switch
-            aria-label={server.serverEnabled ? copy.turnServerOff(card.name) : copy.turnServerOn(card.name)}
-            checked={server.serverEnabled ?? false}
-            onCheckedChange={onServerToggle}
-            size="xs"
-          />
-        ) : null}
-
-        {card.verb && onVerb ? (
-          <Button
-            disabled={busy}
-            loading={busy}
-            onClick={onVerb}
-            size="xs"
-            variant={card.state === 'available' ? 'outline' : 'secondary'}
-          >
-            {copy.verb[card.verb]}
-          </Button>
-        ) : !local && card.fact ? (
-          <span className="truncate text-[0.6875rem] text-(--ui-text-tertiary)">{factText(copy, card.fact)}</span>
-        ) : null}
-      </div>
+      <CardLane
+        busy={busy}
+        card={card}
+        onServerToggle={local ? onServerToggle : undefined}
+        onVerb={onVerb}
+        stateLabel={stateLabel}
+        withDot={!unset}
+      />
     </div>
   )
 }
 
-/** One line only: the reason it broke, else what the app is for, else the endpoint if it runs here. */
+function CardLane({
+  busy,
+  card,
+  onServerToggle,
+  onVerb,
+  stateLabel,
+  withDot
+}: {
+  busy: boolean
+  card: ConnectorCardModel
+  onServerToggle?: (next: boolean) => void
+  onVerb?: () => void
+  stateLabel: string
+  withDot: boolean
+}) {
+  const { t } = useI18n()
+  const copy = t.connectorsPage.card
+  const server = card.ways.local
+  const fact = card.residency === 'hosted' && card.fact ? factText(copy, card.fact) : null
+
+  return (
+    <div className="relative z-10 flex w-[7.75rem] shrink-0 flex-col items-end gap-1">
+      <span className="flex items-center gap-1.5 text-[0.6875rem] text-(--ui-text-secondary)">
+        {withDot ? <span aria-hidden className={cn('size-[5px] shrink-0 rounded-full', STATE_DOT[card.state])} /> : null}
+        <span className="truncate">{stateLabel}</span>
+      </span>
+
+      {server && onServerToggle ? (
+        <Switch
+          aria-label={server.serverEnabled ? copy.turnServerOff(card.name) : copy.turnServerOn(card.name)}
+          checked={server.serverEnabled ?? false}
+          onCheckedChange={onServerToggle}
+          size="xs"
+        />
+      ) : null}
+
+      {card.verb && onVerb ? (
+        <Button
+          disabled={busy}
+          loading={busy}
+          onClick={onVerb}
+          size="xs"
+          variant={card.state === 'available' ? 'outline' : 'secondary'}
+        >
+          {copy.verb[card.verb]}
+        </Button>
+      ) : null}
+
+      {card.verb === undefined && fact !== null ? (
+        <span className="truncate text-[0.6875rem] text-(--ui-text-tertiary)">{fact}</span>
+      ) : null}
+    </div>
+  )
+}
+
 function SecondLine({ card, reason }: { card: ConnectorCardModel; reason?: string }) {
   if (reason) {
     return <p className={cn('truncate text-[0.72rem]', REASON_TONE[card.state])}>{reason}</p>
   }
 
-  if (card.description) {
-    return <p className="line-clamp-2 text-[0.72rem] leading-snug text-(--ui-text-secondary)">{card.description}</p>
-  }
-
-  const target = card.residency === 'local' ? card.ways.local?.target : undefined
-
-  return target ? <p className="truncate font-mono text-[0.65rem] text-(--ui-text-tertiary)">{target}</p> : null
+  return card.description ? (
+    <p className="line-clamp-2 text-[0.72rem] leading-snug text-(--ui-text-secondary)">{card.description}</p>
+  ) : null
 }

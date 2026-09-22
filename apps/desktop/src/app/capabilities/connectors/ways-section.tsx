@@ -1,37 +1,28 @@
-import { type ReactNode, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
-import type { ConnectorCardField } from '@/components/ui/connector-card'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 
 import { bothWaysOn } from './derive'
+import { localResidencyWord } from './residency'
 import type { ConnectorCardModel, ConnectorWayHosted, ConnectorWayLocal } from './types'
 
 export interface WaysSectionProps {
   card: ConnectorCardModel
-  /** False when the column above already leads with the hosted verb, so the row does not offer it twice. */
   hostedVerb?: boolean
-  /** The bundled entry's credential fields. The section owns the draft and hands it to `onInstall`. */
-  installFields?: readonly ConnectorCardField[]
-  installing?: boolean
-  /** Sign the server on this Mac in again; it keeps its own token, so this is not the hosted Connect. */
   onAuthenticate?: () => void
   onConnect: () => void
   onDisconnect?: () => void
-  onInstall: (env: Record<string, string>) => void
   onReconnect: () => void
   onServerToggle?: (next: boolean) => void
 }
 
-/** The two forms of one app, side by side. An app with one form says it all in the column above. */
 export function WaysSection({ card, ...rest }: WaysSectionProps) {
   const { t } = useI18n()
   const copy = t.connectorsPage.dialog
   const { hosted, local } = card.ways
 
-  // The section exists to compare the forms, and it owns the local controls whenever it is drawn.
   if (!hosted || !local) {
     return null
   }
@@ -40,21 +31,17 @@ export function WaysSection({ card, ...rest }: WaysSectionProps) {
     <section className="grid gap-3">
       <h3 className="text-xs font-medium text-(--ui-text-primary)">{copy.waysTitle(card.name)}</h3>
 
-      {/* One filled button per dialog: a server waiting for its sign-in has it, so Connect steps back. */}
       <HostedWay
         onConnect={rest.hostedVerb === false ? undefined : rest.onConnect}
         onDisconnect={rest.hostedVerb === false ? undefined : rest.onDisconnect}
         onReconnect={rest.hostedVerb === false ? undefined : rest.onReconnect}
-        quiet={local.installed && local.verb === 'authenticate'}
+        quiet={local.verb === 'authenticate'}
         way={hosted}
       />
 
       <LocalWay
-        installFields={rest.installFields}
-        installing={rest.installing}
         name={card.name}
         onAuthenticate={rest.onAuthenticate}
-        onInstall={rest.onInstall}
         onServerToggle={rest.onServerToggle}
         way={local}
       />
@@ -71,7 +58,6 @@ export function WaysSection({ card, ...rest }: WaysSectionProps) {
   )
 }
 
-/** The installed server's one switch, wherever the column puts it: the dialog never draws a second. */
 export function LocalServerControl({
   name,
   onAuthenticate,
@@ -102,7 +88,6 @@ export function LocalServerControl({
         ) : null}
       </div>
 
-      {/* The server keeps its own sign-in, so this is the only place that can repair it. */}
       {way.verb === 'authenticate' && onAuthenticate ? (
         <Button className="justify-self-start" onClick={onAuthenticate} size="xs">
           {copy.card.verb.authenticate}
@@ -137,7 +122,6 @@ function HostedWay({
 }) {
   const { t } = useI18n()
   const copy = t.connectorsPage
-  // A hosted column already names the account above this row.
   const ownsHosted = Boolean(onConnect || onDisconnect || onReconnect)
 
   return (
@@ -155,7 +139,7 @@ function HostedWay({
 
         {(way.state === 'expired' || way.state === 'broken') && onReconnect ? (
           <Button onClick={onReconnect} size="xs" variant="secondary">
-            {copy.card.verb.reconnect}
+            {copy.card.verb[way.state === 'broken' ? 'tryAgain' : 'reconnect']}
           </Button>
         ) : null}
 
@@ -170,19 +154,13 @@ function HostedWay({
 }
 
 function LocalWay({
-  installFields = [],
-  installing = false,
   name,
   onAuthenticate,
-  onInstall,
   onServerToggle,
   way
 }: {
-  installFields?: readonly ConnectorCardField[]
-  installing?: boolean
   name: string
   onAuthenticate?: () => void
-  onInstall: (env: Record<string, string>) => void
   onServerToggle?: (next: boolean) => void
   way: ConnectorWayLocal
 }) {
@@ -190,61 +168,8 @@ function LocalWay({
   const copy = t.connectorsPage
 
   return (
-    <WayRow body={copy.dialog.wayLocalBody} title={copy.dialog.wayLocal}>
-      {way.installed ? (
-        <LocalServerControl name={name} onAuthenticate={onAuthenticate} onServerToggle={onServerToggle} way={way} />
-      ) : (
-        <LocalInstall installFields={installFields} installing={installing} onInstall={onInstall} />
-      )}
+    <WayRow body={copy.dialog.wayLocalBody} title={localResidencyWord(copy)}>
+      <LocalServerControl name={name} onAuthenticate={onAuthenticate} onServerToggle={onServerToggle} way={way} />
     </WayRow>
-  )
-}
-
-/** The offer to put the server on this Mac: the credentials it needs first, then the one verb. */
-export function LocalInstall({
-  installFields = [],
-  installing = false,
-  onInstall
-}: {
-  installFields?: readonly ConnectorCardField[]
-  installing?: boolean
-  onInstall: (env: Record<string, string>) => void
-}) {
-  const { t } = useI18n()
-  const [draft, setDraft] = useState<Record<string, string>>({})
-  const missing = installFields.some(field => field.required === true && !(draft[field.name] ?? '').trim())
-
-  return (
-    <div className="grid justify-items-start gap-2">
-      {installFields.length > 0 ? (
-        <>
-          <p className="text-[0.7rem] text-(--ui-text-tertiary)">{t.settings.mcp.catalogEnvRequired}</p>
-          {installFields.map(field => (
-            <label className="grid w-full gap-1" key={field.name}>
-              <span className="text-[0.65rem] text-(--ui-text-secondary)">
-                {field.prompt || field.name}
-                {field.required ? ' *' : ''}
-              </span>
-              <Input
-                className="h-7 text-xs"
-                onChange={event => setDraft({ ...draft, [field.name]: event.currentTarget.value })}
-                type="password"
-                value={draft[field.name] ?? ''}
-              />
-            </label>
-          ))}
-        </>
-      ) : null}
-
-      <Button
-        disabled={installing || missing}
-        loading={installing}
-        onClick={() => onInstall(draft)}
-        size="xs"
-        variant="outline"
-      >
-        {t.connectorsPage.card.verb.install}
-      </Button>
-    </div>
   )
 }

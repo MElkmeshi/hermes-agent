@@ -1,5 +1,3 @@
-// Connect is never optimistic: nothing enters this store until the backend answered.
-
 import type {
   ConnectionOperationStatus,
   ConnectionSettleReason,
@@ -16,12 +14,9 @@ import { accountOperationStatus } from './rpc'
 
 export interface AccountOperation {
   connectors: string[]
-  /** Unix seconds; backend-owned. */
   deadlineAt: number
   opId: string
-  /** The scope the operation started under; a settle refetches THAT scope's reads. */
   scope: ProfileScope
-  /** The newest frame applied: the transport can reorder frames, and an older one would regress a target. */
   seq: number
   settled: boolean
   settledBy: ConnectionSettleReason | null
@@ -30,10 +25,8 @@ export interface AccountOperation {
 
 export const $accountOperations = atom<Readonly<Record<string, AccountOperation>>>({})
 
-/** The pending account outlives the operation, so until the reads catch up the rows still say `Connecting`. */
 export const $abandonedConnects = atom<readonly string[]>([])
 
-/** Stop waiting, in the current frame: the reads that follow only confirm it. */
 export function abandonConnect(slugs: readonly string[]): void {
   const kept = $abandonedConnects.get().filter(slug => !slugs.includes(slug))
 
@@ -51,18 +44,15 @@ function resumeConnect(slugs: readonly string[]): void {
 const parseTargets = (targets: ConnectionUpdatePayload['targets']): ConnectionTarget[] =>
   targets.map(parseConnectionTarget).filter((target): target is ConnectionTarget => target !== null)
 
-/** The operation open for one app. A plain selector, because a store per card would churn on every frame. */
 export function accountOperationFor(
   operations: Readonly<Record<string, AccountOperation>>,
   slug: string
 ): AccountOperation | null {
   const mine = Object.values(operations).filter(operation => operation.connectors.includes(slug))
 
-  // An unsettled operation is the live one; among settled ones the newest is what the person is still looking at.
   return mine.find(operation => !operation.settled) ?? mine[mine.length - 1] ?? null
 }
 
-/** Record the operation `connectors.connect` just opened. */
 export function startAccountOperation(
   scope: ProfileScope,
   connectors: readonly string[],
@@ -81,7 +71,6 @@ export function startAccountOperation(
 
   resumeConnect(operation.connectors)
 
-  // A finished attempt on the same app is history the moment a new one opens.
   const kept = Object.entries($accountOperations.get()).filter(
     ([, previous]) => !previous.settled || !previous.connectors.some(slug => operation.connectors.includes(slug))
   )
@@ -92,13 +81,11 @@ export function startAccountOperation(
   return operation
 }
 
-/** An ACCOUNT broadcast reaches every client, so the backend strips the link from it; only a reply carries one. */
 function carryLink(held: ConnectionTarget | undefined, target: ConnectionTarget): ConnectionTarget {
   if (!held) {
     return target
   }
 
-  // A target back at `initiated` is a new attempt, so the held link is spent.
   const reissued = target.state === 'initiated' && held.state !== 'initiated'
 
   return {
@@ -108,10 +95,8 @@ function carryLink(held: ConnectionTarget | undefined, target: ConnectionTarget)
   }
 }
 
-/** A `broadcast` at a seq that did not move is a reorder; only a `reply` carries the link. */
 type SnapshotSource = 'broadcast' | 'reply'
 
-/** Every snapshot carries the whole target list, so it is taken as given; only the link is carried across. */
 function applySnapshot(
   opId: string,
   snapshot: Pick<ConnectionOperationStatus, 'deadline_at' | 'seq' | 'settled' | 'settled_by' | 'targets'>,
@@ -138,7 +123,6 @@ function applySnapshot(
   refetchOnSettle(next)
 }
 
-/** Apply one account-owned `connection.update`; a frame for an operation this window never started is dropped. */
 export function applyAccountConnectionUpdate(payload: ConnectionUpdatePayload): void {
   if (payload.owner.type !== 'account') {
     return
@@ -147,7 +131,6 @@ export function applyAccountConnectionUpdate(payload: ConnectionUpdatePayload): 
   applySnapshot(payload.op_id, payload, 'broadcast')
 }
 
-/** Ask for the operation again — the only way to get a link this window does not hold. Silent on failure. */
 export async function syncAccountOperation(opId: string): Promise<void> {
   const operation = $accountOperations.get()[opId]
 
@@ -159,11 +142,10 @@ export async function syncAccountOperation(opId: string): Promise<void> {
     const status = await accountOperationStatus(operation.scope, opId)
     applySnapshot(opId, status, 'reply')
   } catch {
-    // A settled operation leaves the live registry, and the refetch settling scheduled is the answer.
+    // A settled operation leaves the live registry; the refetch it scheduled is the answer.
   }
 }
 
-/** Drop one operation: the dialog closed on a finished connect, or the person stopped waiting. */
 export function clearAccountOperation(opId: string): void {
   const operations = $accountOperations.get()
 
@@ -176,7 +158,6 @@ export function clearAccountOperation(opId: string): void {
   $accountOperations.set(next)
 }
 
-/** A settle makes the list and the accounts wrong whatever it settled as; the tools and the catalog did not. */
 function refetchOnSettle(operation: AccountOperation): void {
   if (!operation.settled) {
     return

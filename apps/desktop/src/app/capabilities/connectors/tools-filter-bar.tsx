@@ -12,7 +12,6 @@ import type { QuickAction, QuickActionId, ToolsFilter, ToolsFreshness } from './
 
 const HOUR_MS = 3_600_000
 
-/** A 24 h cache means the list is usually already there, so the cue says only how old it is. */
 export function freshnessLabel(copy: Translations['connectorsPage']['tools'], freshness: ToolsFreshness): string {
   const hours = Math.floor(Math.max(0, Date.now() - freshness.fetchedAt) / HOUR_MS)
 
@@ -41,10 +40,9 @@ export interface ToolsFilterBarProps {
   onApplyQuickAction: (id: QuickActionId) => void
   onFilterChange: (next: ToolsFilter) => void
   onRefresh: () => void
-  /** Back to the summary this list opened from. */
   onShowSummary: () => void
   quickActions: QuickAction[]
-  /** Under nine tools the whole bar is one search field's worth of noise. */
+  refreshing?: boolean
   tiny: boolean
   total: number
 }
@@ -61,6 +59,7 @@ export function ToolsFilterBar({
   onRefresh,
   onShowSummary,
   quickActions,
+  refreshing = false,
   tiny,
   total
 }: ToolsFilterBarProps) {
@@ -94,8 +93,8 @@ export function ToolsFilterBar({
           </span>
         ) : null}
 
-        <Button className="shrink-0" onClick={onRefresh} size="xs" variant="text">
-          {copy.refresh}
+        <Button className="shrink-0" disabled={refreshing} onClick={onRefresh} size="xs" variant="text">
+          {refreshing ? copy.refreshing : copy.refresh}
         </Button>
       </div>
 
@@ -147,7 +146,6 @@ export function ToolsFilterBar({
   )
 }
 
-/** A chip is a toggle, so it is a button; the count rides inside the label. */
 function FilterChip({
   count,
   label,

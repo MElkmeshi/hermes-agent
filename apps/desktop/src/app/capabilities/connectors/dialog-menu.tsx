@@ -13,7 +13,6 @@ import { useI18n } from '@/i18n'
 import { openConnectorsAdmin } from './data/portal'
 
 export interface ConnectorDialogMenuProps {
-  /** Absent on a server on this Mac: there is nothing to reconnect to. */
   onReconnect?: () => void
   onRefreshTools: () => void
 }

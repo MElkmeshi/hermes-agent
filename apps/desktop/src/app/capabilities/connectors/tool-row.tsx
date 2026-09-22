@@ -11,13 +11,10 @@ import { describesNothingNew } from './derive-tools'
 import { hintTags, tagCopy, vocabularyTag, type VocabularyTone } from './hint-vocabulary'
 import type { ToolRowModel } from './types'
 
-/** The windowing arithmetic depends on every closed row being exactly this tall. */
 export const TOOL_ROW_HEIGHT = 30
 
-/** Past two, the tags cost more width than the name; the rest are named whole in the disclosure. */
 const MAX_ROW_HINTS = 2
 
-/** Read stays in the text ramp: colouring the commonest facet would stop the loud ones reading as loud. */
 const TONE_CLASS = {
   danger: 'text-(--ui-red)',
   neutral: 'text-(--ui-text-secondary)',
@@ -30,9 +27,7 @@ export interface ToolRowProps {
   on: boolean
   onExpand: () => void
   onToggle: () => void
-  /** No account: the row names a tool the app would bring, and carries no switch. */
   preview?: boolean
-  /** The switch still says what is on; it just cannot be moved. */
   readOnly?: boolean
   tool: ToolRowModel
 }
@@ -45,7 +40,6 @@ export function ToolRow({ expanded, on, onExpand, onToggle, preview = false, rea
   const facet = vocabularyTag(tool.facet)
   const facetCopy = tagCopy(facet, t.connectorsPage.vocabulary)
   const hints = hintTags(tool.hints, tool.facet)
-  // Nothing to disclose: the description only repeats the name, so the row is not a button at all.
   const expandable = !describesNothingNew(tool)
 
   const line = (
@@ -136,7 +130,6 @@ function HintTags({ hints, more }: { hints: ReturnType<typeof hintTags>; more: n
   )
 }
 
-/** Indented to the name lane, so the disclosure reads as the line above it rather than a new row. */
 function ToolDetail({ hints, tool }: { hints: ReturnType<typeof hintTags>; tool: ToolRowModel }): ReactNode {
   const { t } = useI18n()
 

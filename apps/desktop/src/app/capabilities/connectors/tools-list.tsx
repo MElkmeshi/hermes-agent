@@ -1,5 +1,4 @@
-// Every closed row is `TOOL_ROW_HEIGHT` and at most one disclosure is open; the window is index arithmetic on that.
-
+import type * as React from 'react'
 import { type ReactNode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -18,7 +17,13 @@ import {
 } from './derive-tools'
 import { TOOL_ROW_HEIGHT, ToolRow } from './tool-row'
 import { ToolsFilterBar } from './tools-filter-bar'
-import { isToolsStatusPhase, ToolsStatus, type ToolsStatusAction, ToolsWash } from './tools-status'
+import {
+  isToolsStatusPhase,
+  ToolsStatus,
+  type ToolsStatusAction,
+  type ToolsStatusPhase,
+  ToolsWash
+} from './tools-status'
 import { ToolsSummary, useShowAllTools } from './tools-summary'
 import type {
   ConflictDifference,
@@ -33,66 +38,79 @@ import type { ToolsEditor } from './use-tools-editor'
 const OVERSCAN = 4
 const MIN_VIEWPORT = 200
 
-/** Stable, so a read-only bar does not get a fresh array on every render. */
 const EMPTY_QUICK_ACTIONS: QuickAction[] = []
 
 export interface ToolsListProps {
-  /** The person turned the whole app off, and the portal refuses a tool rule for an app that is off. */
   appOff?: boolean
-  /** Only read in the `conflict` phase. */
   conflict?: ConflictDifference
   connectorName: string
   editor: ToolsEditor
   freshness?: ToolsFreshness
-  /** Identifies the list itself, so its openness follows the app rather than its display title. */
   listKey: string
   onRefresh: () => void
   onReload: () => void
   onRemove: () => void
   onRetry: () => void
-  /** Read the rules again. Shown beside the switches the failed read froze. */
   onRetryRules?: () => void
-  /** Absent where no sign-in control can appear, so a sign-in line can never be drawn without its way out. */
   onSignIn?: () => void
-  /** No account yet: the list says what the app would bring, and carries no switch at all. */
   preview?: boolean
-  /** The list still reads, but every switch is inert, the quick actions are gone and there is no footer. */
   readOnly?: boolean
-  /** The rules read refused this identity, so a Retry could never win. */
+  refreshing?: boolean
   rulesSignedOut?: boolean
-  /** The portal refused this identity: the cached list stays, with one quiet line beside it. */
   signedOut?: boolean
   tools: ToolRowModel[]
 }
 
 export function ToolsList(props: ToolsListProps) {
+  const phase = props.editor.phase
+
+  if (phase === 'loading') {
+    return <ToolsWash />
+  }
+
+  if (phase === 'unavailable') {
+    return <UnavailableLine onRetry={props.onRetry} />
+  }
+
+  if (isToolsStatusPhase(phase)) {
+    return (
+      <StatusColumn
+        connectorName={props.connectorName}
+        difference={props.conflict ?? { theyOff: 0, theyOn: 0 }}
+        editor={props.editor}
+        onReload={props.onReload}
+        onRemove={props.onRemove}
+        onSignIn={props.onSignIn}
+        phase={phase}
+      />
+    )
+  }
+
+  return <ToolsListBody {...props} />
+}
+
+function ToolsListBody(props: ToolsListProps) {
+  const { t } = useI18n()
   const [filter, setFilter] = useState<ToolsFilter>(EMPTY_TOOLS_FILTER)
 
   const {
     appOff = false,
-    conflict,
     connectorName,
     editor,
     listKey,
-    onReload,
-    onRemove,
-    onRetry,
     onRetryRules,
     onSignIn,
     preview = false,
     readOnly = false,
+    refreshing = false,
     rulesSignedOut = false,
     signedOut = false,
     tools
   } = props
 
-  const phase = editor.phase
-  // Nothing here can be written, either because the rules refused or because there is no account.
   const frozen = readOnly || preview || appOff
-  // A list the person left open reopens open, and an unsaved edit opens it by itself.
   const all = useShowAllTools(listKey, editor.dirty)
 
-  // Counted over every row the reader can reach: no chip vanishes under a sibling, none names a hidden row.
   const chrome = useMemo(() => {
     const counted = filter.showDeprecated ? tools : tools.filter(tool => !tool.deprecated)
 
@@ -109,33 +127,6 @@ export function ToolsList(props: ToolsListProps) {
   const visible = useMemo(() => filterTools(tools, filter), [tools, filter])
   const summary = useMemo(() => facetSummary(tools, editor.isOn), [tools, editor.isOn])
 
-  if (phase === 'loading') {
-    return <ToolsWash />
-  }
-
-  // The app is still there and its saved rule still holds, so only the read is worth saying.
-  if (phase === 'unavailable') {
-    return <UnavailableLine onRetry={onRetry} />
-  }
-
-  if (isToolsStatusPhase(phase)) {
-    const act: Record<ToolsStatusAction, (() => void) | undefined> = {
-      keepMine: () => void editor.keepMine(),
-      reload: onReload,
-      remove: onRemove,
-      signIn: onSignIn
-    }
-
-    return (
-      <ToolsStatus
-        connectorName={connectorName}
-        difference={conflict ?? { theyOff: 0, theyOn: 0 }}
-        onAction={id => act[id]?.()}
-        phase={phase}
-      />
-    )
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-slot="tools-list">
       {all.open ? (
@@ -151,6 +142,7 @@ export function ToolsList(props: ToolsListProps) {
           onRefresh={props.onRefresh}
           onShowSummary={all.hide}
           quickActions={frozen ? EMPTY_QUICK_ACTIONS : chrome.quickActions}
+          refreshing={refreshing}
           tiny={chrome.tiny}
           total={tools.length}
         />
@@ -163,27 +155,26 @@ export function ToolsList(props: ToolsListProps) {
           onToggleFacet={editor.toggleFacet}
           preview={preview}
           readOnly={readOnly || appOff}
+          refreshing={refreshing}
           rows={summary}
           total={tools.length}
         />
       )}
 
-      {/* Beside the switches it froze, whichever view is open. An app with no account has no rule to fail. */}
-      {(readOnly || appOff) && !preview ? (
-        <RulesLine
-          appOffName={appOff ? connectorName : undefined}
-          onRetryRules={onRetryRules}
-          onSignIn={onSignIn}
-          signedOut={rulesSignedOut}
-        />
-      ) : null}
+      <FrozenLines
+        appOffName={appOff ? connectorName : undefined}
+        frozen={readOnly || appOff}
+        onRetryRules={onRetryRules}
+        onSignIn={onSignIn}
+        preview={preview}
+        rulesSignedOut={rulesSignedOut}
+        signedOut={signedOut}
+      />
 
-      {signedOut && onSignIn ? <SignInLine onSignIn={onSignIn} /> : null}
-
-      {/* Stays mounted through a query that matches nothing: it owns the scroll offset and the open row. */}
       {all.open ? (
         <ToolViewport
           isOn={editor.isOn}
+          label={t.connectorsPage.tools.toolList(connectorName)}
           onToggle={editor.toggle}
           preview={preview}
           readOnly={frozen}
@@ -204,10 +195,47 @@ export function ToolsList(props: ToolsListProps) {
           counts={editor.counts}
           onDiscard={editor.discard}
           onSave={() => void editor.save()}
-          saving={phase === 'saving'}
+          saving={editor.phase === 'saving'}
         />
       ) : null}
     </div>
+  )
+}
+
+function StatusColumn({
+  connectorName,
+  difference,
+  editor,
+  onReload,
+  onRemove,
+  onSignIn,
+  phase
+}: {
+  connectorName: string
+  difference: ConflictDifference
+  editor: ToolsEditor
+  onReload: () => void
+  onRemove: () => void
+  onSignIn?: () => void
+  phase: ToolsStatusPhase
+}) {
+  const act = {
+    keepMine: () => void editor.keepMine(),
+    reload: () => {
+      editor.discard()
+      onReload()
+    },
+    remove: onRemove,
+    signIn: onSignIn
+  } satisfies Record<ToolsStatusAction, (() => void) | undefined>
+
+  return (
+    <ToolsStatus
+      connectorName={connectorName}
+      difference={difference}
+      onAction={id => act[id]?.()}
+      phase={phase}
+    />
   )
 }
 
@@ -220,7 +248,6 @@ function Line({ action, label }: { action?: ReactNode; label: string }) {
   )
 }
 
-/** One quiet line, never an empty state: a failed read is not a verdict about the app. */
 function UnavailableLine({ onRetry }: { onRetry: () => void }) {
   const { t } = useI18n()
 
@@ -236,7 +263,6 @@ function UnavailableLine({ onRetry }: { onRetry: () => void }) {
   )
 }
 
-/** The cached list is still true; only what a sign-in would refresh is worth a line. */
 function SignInLine({ onSignIn }: { onSignIn: () => void }) {
   const { t } = useI18n()
 
@@ -252,7 +278,39 @@ function SignInLine({ onSignIn }: { onSignIn: () => void }) {
   )
 }
 
-/** Why every switch below is frozen, said where those switches are. */
+function FrozenLines({
+  appOffName,
+  frozen,
+  onRetryRules,
+  onSignIn,
+  preview,
+  rulesSignedOut,
+  signedOut
+}: {
+  appOffName?: string
+  frozen: boolean
+  onRetryRules?: () => void
+  onSignIn?: () => void
+  preview: boolean
+  rulesSignedOut: boolean
+  signedOut: boolean
+}) {
+  return (
+    <>
+      {frozen && !preview ? (
+        <RulesLine
+          appOffName={appOffName}
+          onRetryRules={onRetryRules}
+          onSignIn={onSignIn}
+          signedOut={rulesSignedOut}
+        />
+      ) : null}
+
+      {signedOut && onSignIn ? <SignInLine onSignIn={onSignIn} /> : null}
+    </>
+  )
+}
+
 function RulesLine({
   appOffName,
   onRetryRules,
@@ -267,7 +325,6 @@ function RulesLine({
   const { t } = useI18n()
   const copy = t.connectorsPage
 
-  // The app's own switch is the way out, and it sits in the column beside this line.
   if (appOffName) {
     return <Line label={copy.dialog.rulesAppOff(appOffName)} />
   }
@@ -290,7 +347,6 @@ function RulesLine({
   )
 }
 
-/** The list's last line, never a chip: over the filter bar it printed on top of the first row. */
 function DeprecatedToggle({ count, onToggle, shown }: { count: number; onToggle: () => void; shown: boolean }) {
   const { t } = useI18n()
   const copy = t.connectorsPage.tools
@@ -304,15 +360,16 @@ function DeprecatedToggle({ count, onToggle, shown }: { count: number; onToggle:
   )
 }
 
-/** Scroll anchoring is off on purpose: the browser reads the recycled slice as content shifting. */
 function ToolViewport({
   isOn,
+  label,
   onToggle,
   preview,
   readOnly,
   tools
 }: {
   isOn: (slug: string) => boolean
+  label: string
   onToggle: (slug: string) => void
   preview: boolean
   readOnly: boolean
@@ -321,11 +378,9 @@ function ToolViewport({
   const { t } = useI18n()
   const [scrollTop, setScrollTop] = useState(0)
   const [expanded, setExpanded] = useState<null | string>(null)
-  /** Measured, because a description runs from one line to a paragraph and is shown whole. */
   const [detailHeight, setDetailHeight] = useState(0)
   const viewport = useViewportHeight()
 
-  /** A ref callback, not an effect: the detail remounts whenever its row leaves and re-enters the window. */
   const measureDetail = useCallback((node: HTMLDivElement | null) => {
     if (node) {
       setDetailHeight(Math.max(0, node.getBoundingClientRect().height - TOOL_ROW_HEIGHT))
@@ -335,7 +390,6 @@ function ToolViewport({
   const expandedIndex = expanded === null ? -1 : tools.findIndex(tool => tool.slug === expanded)
   const extra = expandedIndex >= 0 ? detailHeight : 0
   const total = tools.length * TOOL_ROW_HEIGHT + extra
-  // Everything below the open row sits `extra` lower; everything above is where it always was.
   const cut = expandedIndex >= 0 ? (expandedIndex + 1) * TOOL_ROW_HEIGHT : Number.POSITIVE_INFINITY
 
   const indexAt = (y: number) => Math.max(0, Math.floor((y < cut ? y : Math.max(cut, y - extra)) / TOOL_ROW_HEIGHT))
@@ -343,7 +397,6 @@ function ToolViewport({
   const offsetAt = (index: number) =>
     index * TOOL_ROW_HEIGHT + (expandedIndex >= 0 && index > expandedIndex ? extra : 0)
 
-  // Clamped: a filter that shortens the list leaves `scrollTop` past the new bottom, which paints blank.
   const top = Math.min(scrollTop, Math.max(0, total - viewport.height))
 
   const start = Math.max(0, indexAt(top) - OVERSCAN)
@@ -360,12 +413,28 @@ function ToolViewport({
       return slug
     })
 
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const node = event.currentTarget
+    const step = scrollStepFor(event.key, viewport.height)
+
+    if (step === undefined || event.target !== node) {
+      return
+    }
+
+    event.preventDefault()
+    node.scrollTop = step === 'top' ? 0 : step === 'bottom' ? total : node.scrollTop + step
+  }
+
   return (
     <div
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]"
+      aria-label={label}
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none] outline-none focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50"
       data-slot="tools-viewport"
+      onKeyDown={onKeyDown}
       onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
       ref={viewport.ref}
+      role="list"
+      tabIndex={0}
     >
       {tools.length === 0 ? (
         <p className="px-3.5 py-8 text-center text-xs text-(--ui-text-tertiary)">{t.connectorsPage.tools.noMatch}</p>
@@ -373,8 +442,14 @@ function ToolViewport({
 
       <div className="relative" style={{ height: total }}>
         <div className="absolute inset-x-0" style={{ top: offsetAt(start) }}>
-          {tools.slice(start, end).map(tool => (
-            <div key={tool.slug} ref={expanded === tool.slug ? measureDetail : undefined}>
+          {tools.slice(start, end).map((tool, offset) => (
+            <div
+              aria-posinset={start + offset + 1}
+              aria-setsize={tools.length}
+              key={tool.slug}
+              ref={expanded === tool.slug ? measureDetail : undefined}
+              role="listitem"
+            >
               <ToolRow
                 expanded={expanded === tool.slug}
                 on={isOn(tool.slug)}
@@ -392,7 +467,26 @@ function ToolViewport({
   )
 }
 
-/** Measured, so the list ends where the dialog ends instead of nesting a scroller inside a scroller. */
+type ScrollStep = 'bottom' | 'top' | number
+
+const SCROLL_KEYS = {
+  ArrowDown: () => TOOL_ROW_HEIGHT,
+  ArrowUp: () => -TOOL_ROW_HEIGHT,
+  End: () => 'bottom',
+  Home: () => 'top',
+  PageDown: (viewport: number) => viewport,
+  PageUp: (viewport: number) => -viewport
+} satisfies Record<string, (viewport: number) => ScrollStep>
+
+function scrollStepFor(key: string, viewport: number): ScrollStep | undefined {
+  if (!Object.hasOwn(SCROLL_KEYS, key)) {
+    return undefined
+  }
+
+  // SAFETY: guarded by `Object.hasOwn` on the line above.
+  return SCROLL_KEYS[key as keyof typeof SCROLL_KEYS](viewport)
+}
+
 function useViewportHeight() {
   const ref = useRef<HTMLDivElement | null>(null)
   const [height, setHeight] = useState(MIN_VIEWPORT)

@@ -1,9 +1,6 @@
-// The page's own derivations; `derive-tools.ts` owns everything inside an opened connector.
-
 import { connectorTitle } from '@/lib/connector-tools'
 
 import type {
-  BundledEntryInput,
   ConnectorCardModel,
   ConnectorFact,
   ConnectorReason,
@@ -28,17 +25,26 @@ interface Phase {
   verb: ConnectorVerb | undefined
 }
 
-/** One table instead of a ladder: each account status decides its own state, reason and verb. */
 const HOSTED_PHASES = {
   active: { reason: undefined, state: 'connected', verb: undefined },
   expired: { reason: 'reconnect', state: 'expired', verb: 'reconnect' },
-  failed: { reason: 'reconnect', state: 'broken', verb: 'reconnect' },
+  failed: { reason: 'reconnect', state: 'broken', verb: 'tryAgain' },
   inactive: { reason: 'reconnect', state: 'expired', verb: 'reconnect' },
   pending: { reason: 'finishSignIn', state: 'connecting', verb: 'stopWaiting' },
   revoked: { reason: 'reconnect', state: 'expired', verb: 'reconnect' }
 } satisfies Record<string, Phase>
 
-/** The same table for a server on this machine. `ok` and `off` carry no verb: the card has the switch. */
+const UNKNOWN_HOSTED_PHASE: Phase = { reason: undefined, state: 'unknown', verb: undefined }
+
+function hostedPhaseFor(status: string): Phase {
+  if (!Object.hasOwn(HOSTED_PHASES, status)) {
+    return UNKNOWN_HOSTED_PHASE
+  }
+
+  // SAFETY: guarded by `Object.hasOwn` on the line above.
+  return HOSTED_PHASES[status as keyof typeof HOSTED_PHASES]
+}
+
 const LOCAL_PHASES = {
   error: { reason: 'serverError', state: 'broken', verb: 'openLogs' },
   'needs-auth': { reason: 'serverNeedsAuth', state: 'broken', verb: 'authenticate' },
@@ -48,14 +54,14 @@ const LOCAL_PHASES = {
   unknown: { reason: undefined, state: 'connecting', verb: undefined }
 } satisfies Record<LocalServerStatus, Phase>
 
-/** The word is a function of the state and of which way is speaking, so it is never stored twice. */
 const HOSTED_WORDS = {
   available: 'available',
   broken: 'couldNotConnect',
   connected: 'connected',
   connecting: 'connecting',
   expired: 'accessExpired',
-  off: 'offForYou'
+  off: 'offForYou',
+  unknown: 'connectionUnknown'
 } satisfies Record<ConnectorState, ConnectorStateWord>
 
 const LOCAL_WORDS = {
@@ -64,12 +70,10 @@ const LOCAL_WORDS = {
   connected: 'serverOn',
   connecting: 'serverConnecting',
   expired: 'serverError',
-  off: 'serverOff'
+  off: 'serverOff',
+  unknown: 'serverConnecting'
 } satisfies Record<ConnectorState, ConnectorStateWord>
 
-// ---------------------------------------------------------------- the two ways
-
-/** One hosted app, as its own form. */
 export function hostedWay(row: HostedConnectorInput): ConnectorWayHosted {
   const base = {
     accountLabel: row.accountLabel,
@@ -78,7 +82,6 @@ export function hostedWay(row: HostedConnectorInput): ConnectorWayHosted {
     disabledTools: row.disabledTools
   }
 
-  // Policy comes before status: a verb on an app the org took away would promise what cannot work.
   if (row.orgLocked) {
     return { ...base, offBy: 'org', state: 'off' }
   }
@@ -87,13 +90,13 @@ export function hostedWay(row: HostedConnectorInput): ConnectorWayHosted {
     return { ...base, offBy: 'me', state: 'off', verb: 'turnBackOn' }
   }
 
-  const phase = row.connected ? HOSTED_PHASES[row.connectionStatus ?? 'active'] : undefined
+  const status = row.connectionStatus ?? 'active'
+  const phase = row.connected ? hostedPhaseFor(status) : undefined
 
   if (!phase) {
     return { ...base, state: 'available', verb: 'connect' }
   }
 
-  // An attempt still in the browser has no account to describe, so it names neither identity nor date.
   if (phase.state === 'connecting') {
     return {
       ...base,
@@ -111,7 +114,6 @@ export function hostedWay(row: HostedConnectorInput): ConnectorWayHosted {
       phase.state === 'connected' && row.toolsOff && row.toolsOff > 0
         ? { count: row.toolsOff, key: 'toolsOff' }
         : undefined,
-    // Only a reconnect carries the provider's own sentence about what broke.
     reason: phase.reason
       ? { key: phase.reason, text: phase.reason === 'reconnect' ? row.statusReason : undefined }
       : undefined,
@@ -120,7 +122,6 @@ export function hostedWay(row: HostedConnectorInput): ConnectorWayHosted {
   }
 }
 
-/** An idle server returns no count: the lane holds one fact, and "On, unused" is the one worth reading. */
 function localFact(server: LocalServerInput, state: ConnectorState): ConnectorFact | undefined {
   if (state !== 'connected' || server.unused === true || server.toolsTotal === undefined) {
     return undefined
@@ -135,62 +136,34 @@ function localFact(server: LocalServerInput, state: ConnectorState): ConnectorFa
     : { count: server.toolsOn, key: 'toolsOn' }
 }
 
-/** One server installed on this machine. */
 export function localWay(server: LocalServerInput): ConnectorWayLocal {
   const status: LocalServerStatus = server.enabled ? server.status : 'off'
   const phase = LOCAL_PHASES[status]
 
   return {
     fact: localFact(server, phase.state),
-    installed: true,
     reason: phase.reason ? { key: phase.reason } : undefined,
     serverEnabled: server.enabled,
     serverName: server.name,
     state: phase.state,
     target: server.target,
     unused: server.unused,
-    // A server the browser flow would corrupt is sent to its logs instead; the status word is unchanged.
     verb: phase.verb === 'authenticate' && server.canAuthenticate === false ? 'openLogs' : phase.verb
   }
 }
 
-/** A bundled catalog entry nobody has installed yet. */
-export function bundledWay(entry: BundledEntryInput): ConnectorWayLocal {
-  return {
-    authType: entry.authType,
-    entryName: entry.name,
-    installed: false,
-    needsEnv: entry.needsEnv,
-    state: 'available',
-    verb: 'install'
-  }
-}
-
-/** True when Hermes would see the app's tools twice. */
 export function bothWaysOn({ hosted, local }: ConnectorWays): boolean {
-  return (
-    hosted?.state === 'connected' &&
-    local?.installed === true &&
-    local.serverEnabled === true &&
-    local.state === 'connected'
-  )
+  return hosted?.state === 'connected' && local?.serverEnabled === true && local.state === 'connected'
 }
-
-// ---------------------------------------------------------------- one card per app
 
 type Speaker = { kind: 'hosted'; way: ConnectorWayHosted } | { kind: 'local'; way: ConnectorWayLocal }
 
-/** The card speaks for the way in use: a hosted account first, then an installed server, else what exists. */
 function speakerOf(ways: ConnectorWays): Speaker {
   if (ways.hosted && ways.hosted.state !== 'available') {
     return { kind: 'hosted', way: ways.hosted }
   }
 
-  if (ways.local?.installed === true) {
-    return { kind: 'local', way: ways.local }
-  }
-
-  return ways.hosted ? { kind: 'hosted', way: ways.hosted } : { kind: 'local', way: ways.local }
+  return ways.hosted === null ? { kind: 'local', way: ways.local } : { kind: 'hosted', way: ways.hosted }
 }
 
 function hostedWord(way: ConnectorWayHosted): ConnectorStateWord {
@@ -213,7 +186,6 @@ export interface MergeCardInput {
   ways: ConnectorWays
 }
 
-/** The four combinations of hosted × local, as one card that keeps both forms. */
 export function mergeCard({ description, inCatalog, name, slug, ways }: MergeCardInput): ConnectorCardModel {
   const speaker = speakerOf(ways)
   const base = { description, fact: speaker.way.fact, inCatalog, name, reason: speaker.way.reason, slug, ways }
@@ -239,7 +211,6 @@ export function mergeCard({ description, inCatalog, name, slug, ways }: MergeCar
   }
 }
 
-/** The pending account outlives the operation, so a sign-in nobody waits for reads as available here. */
 export function forgetAbandoned(
   rows: readonly HostedConnectorInput[],
   abandoned: ReadonlySet<string>
@@ -251,42 +222,37 @@ export function forgetAbandoned(
   )
 }
 
-/** A merged card's slug is the hosted slug, so every local call has to ask the way for the mcp.json key. */
 export function localServerName(card: ConnectorCardModel): string {
   return card.ways.local?.serverName ?? card.slug
 }
 
-/** The other way this app could run, when the card is not already speaking for it. */
-export type ConnectorTwinPill = 'alsoLocal' | 'hostedTwin' | null
+export type ConnectorTwinPill = 'hostedTwin' | null
 
 export function twinPillOf({ residency, ways }: ConnectorCardModel): ConnectorTwinPill {
-  if (residency === 'local') {
-    // An app the org took away, or one the person switched off, is nothing to fall back on.
-    return ways.hosted && ways.hosted.state !== 'off' ? 'hostedTwin' : null
-  }
-
-  return ways.local && !ways.local.installed ? 'alsoLocal' : null
+  return residency === 'local' && ways.hosted && ways.hosted.state !== 'off' ? 'hostedTwin' : null
 }
 
 export interface DeriveCardsInput {
-  bundled: readonly BundledEntryInput[]
   hosted: readonly HostedConnectorInput[]
   local: readonly LocalServerInput[]
-  /** Slug → display title. The wiring slice passes `connectorTitles`' result. */
   titles?: Readonly<Record<string, string>>
 }
 
 interface CardParts {
-  bundled?: BundledEntryInput
   hosted?: HostedConnectorInput
   local?: LocalServerInput
 }
 
-/** The manifest's `connector` field is the only merge key; names are never compared. */
-const mergeKey = (hostedSlug: string | undefined, name: string) => hostedSlug ?? `local:${name}`
+// The seam: nothing on the wire pairs a hosted app with a local server, so the two keys never collide.
+export const hostedCardKey = (slug: string) => `hosted:${slug}`
+
+export const localCardKey = (name: string) => `local:${name}`
+
+export const cardKey = (card: ConnectorCardModel): string =>
+  card.residency === 'local' ? localCardKey(card.slug) : hostedCardKey(card.slug)
 
 function waysOf(parts: CardParts): ConnectorWays | null {
-  const local = parts.local ? localWay(parts.local) : parts.bundled ? bundledWay(parts.bundled) : null
+  const local = parts.local ? localWay(parts.local) : null
 
   if (parts.hosted) {
     return { hosted: hostedWay(parts.hosted), local }
@@ -295,38 +261,15 @@ function waysOf(parts: CardParts): ConnectorWays | null {
   return local ? { hosted: null, local } : null
 }
 
-/** One card per app, whichever of the three sources knows about it. */
-export function deriveCards({ bundled, hosted, local, titles = {} }: DeriveCardsInput): ConnectorCardModel[] {
+export function deriveCards({ hosted, local, titles = {} }: DeriveCardsInput): ConnectorCardModel[] {
   const parts = new Map<string, CardParts>()
 
-  const at = (key: string): CardParts => {
-    const found = parts.get(key)
-
-    if (found) {
-      return found
-    }
-
-    const fresh: CardParts = {}
-    parts.set(key, fresh)
-
-    return fresh
-  }
-
   for (const row of hosted) {
-    at(row.slug).hosted = row
+    parts.set(hostedCardKey(row.slug), { hosted: row })
   }
 
   for (const server of local) {
-    at(mergeKey(server.hostedSlug, server.name)).local = server
-  }
-
-  for (const entry of bundled) {
-    const slot = at(mergeKey(entry.hostedSlug, entry.name))
-
-    // An installed server always beats the bundled entry of the same app.
-    if (!slot.local) {
-      slot.bundled = entry
-    }
+    parts.set(localCardKey(server.name), { local: server })
   }
 
   const cards: ConnectorCardModel[] = []
@@ -338,17 +281,13 @@ export function deriveCards({ bundled, hosted, local, titles = {} }: DeriveCards
       continue
     }
 
-    // The slug stays the hosted slug, or the server's config key, so a deep link can still address the card.
-    const slug = slot.hosted?.slug ?? slot.local?.name ?? slot.bundled?.name ?? ''
-    const titleKey = slot.hosted?.slug ?? slot.local?.hostedSlug ?? slot.bundled?.hostedSlug ?? slug
-    // An install must not rename the app: the bundled entry and the server it becomes read the same way.
-    const fallback = connectorTitle(slot.local?.name ?? slot.bundled?.name ?? slug)
+    const slug = slot.hosted?.slug ?? slot.local?.name ?? ''
 
     cards.push(
       mergeCard({
-        description: slot.hosted?.description ?? slot.local?.description ?? slot.bundled?.description,
+        description: slot.hosted?.description,
         inCatalog: slot.hosted?.inCatalog ?? false,
-        name: titles[titleKey] ?? fallback,
+        name: titles[slug] ?? connectorTitle(slug),
         slug,
         ways
       })
@@ -358,19 +297,13 @@ export function deriveCards({ bundled, hosted, local, titles = {} }: DeriveCards
   return cards
 }
 
-// ---------------------------------------------------------------- the hosted half's phase
-
 export interface HostedPhaseInput {
-  /** `connectors.list`'s own `available` flag. */
   available?: boolean
-  /** The list read failed, whatever the reason. */
   errored: boolean
   pending: boolean
-  /** The list read's own typed reason, never another read's. */
   reason: null | string
 }
 
-/** Only the list decides whether the hosted half is usable; the other three reads may refuse it. */
 export function hostedPhase({ available, errored, pending, reason }: HostedPhaseInput): HostedPhase {
   if (reason === 'NEEDS_NOUS_AUTH') {
     return 'signedOut'

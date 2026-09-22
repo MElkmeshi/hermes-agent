@@ -10,12 +10,10 @@ import type { ConnectorCardModel } from './types'
 
 export interface LocalAdvancedProps {
   controller: McpServersController
-  /** The server's key in mcp.json. */
   name: string
   onRemove: () => void
 }
 
-/** The `Advanced` section of an opened local server: its mcp.json entry, its logs, and Remove. */
 export function LocalAdvanced({ controller, name, onRemove }: LocalAdvancedProps) {
   const { t } = useI18n()
   const m = t.settings.mcp
@@ -38,14 +36,12 @@ export function LocalAdvanced({ controller, name, onRemove }: LocalAdvancedProps
 }
 
 export interface RemoveServerConfirmProps {
-  /** The card whose server goes, `null` closes it. The question names the app, as every other surface does. */
   card: ConnectorCardModel | null
   controller: McpServersController
   onClose: () => void
   onRemoved: () => void
 }
 
-/** The page's one destructive local action, asked through the app's `ConfirmDialog` like every other. */
 export function RemoveServerConfirm({ card, controller, onClose, onRemoved }: RemoveServerConfirmProps) {
   const { t } = useI18n()
   const m = t.settings.mcp
@@ -62,7 +58,6 @@ export function RemoveServerConfirm({ card, controller, onClose, onRemoved }: Re
           return
         }
 
-        // Throwing keeps the dialog open with the reason inline; swallowing it would close as if mcp.json had changed.
         if (!(await controller.removeServer(name))) {
           throw new Error(m.removeFailed)
         }

@@ -91,6 +91,214 @@ export interface Translations {
     authorizedToolsUnavailable: string
     required: string
   }
+  /** `connectors.*` above is the onboarding and chat vocabulary; this is the Connectors page's own. */
+  connectorsPage: {
+    title: string
+    searchPlaceholder: (count: number) => string
+    filterCategory: string
+    categoryAll: string
+    uncategorised: string
+    /** The residency word, per platform. The page resolves it once and uses it wherever the word appears. */
+    residencyLocal: {
+      mac: string
+      other: string
+      windows: string
+    }
+    /** `local` is absent on purpose: that segment is labelled with `residencyLocal`. */
+    segment: {
+      all: string
+      available: string
+      connected: string
+      off: string
+    }
+    /** `local` is absent on purpose: that group is headed with `residencyLocal`. */
+    group: {
+      connected: string
+      connectedNote: string
+      available: string
+      availableShowAll: (count: number) => string
+      availableShowFewer: string
+      off: string
+      offNote: string
+    }
+    card: {
+      hosted: string
+      inCatalog: string
+      hostedTwin: string
+      open: (name: string) => string
+      turnServerOn: (name: string) => string
+      turnServerOff: (name: string) => string
+      state: {
+        accessExpired: string
+        available: string
+        connected: string
+        connecting: string
+        connectionUnknown: string
+        couldNotConnect: string
+        notInstalled: string
+        offByYourOrganisation: string
+        offForYou: string
+        serverConnecting: string
+        serverError: string
+        serverNeedsAuth: string
+        serverOff: string
+        serverOn: string
+        serverOnUnused: string
+      }
+      fact: {
+        tools: (count: number) => string
+        toolsOff: (count: number) => string
+        toolsOn: (count: number) => string
+        toolsSomeOn: (total: number, on: number) => string
+      }
+      verb: {
+        authenticate: string
+        connect: string
+        openLogs: string
+        reconnect: string
+        stopWaiting: string
+        tryAgain: string
+        turnBackOn: string
+      }
+      reason: {
+        finishSignIn: string
+        reconnect: string
+        serverError: string
+        serverNeedsAuth: string
+      }
+    }
+    page: {
+      loading: string
+      emptyTitle: string
+      noMatchTitle: string
+      noMatchBody: string
+      clearSearch: string
+      hostedFailedTitle: string
+      hostedFailedBody: string
+      retry: string
+      matchesElsewhere: (count: number) => string
+      showAllMatches: string
+      segmentNoMatch: (segment: string) => string
+      freeTierNote: string
+      signInLine: string
+      signIn: string
+      writeFailed: string
+      refreshFailed: string
+      disconnectNoAccount: string
+    }
+    add: {
+      action: string
+      title: string
+      hint: string
+    }
+    dialog: {
+      actsAs: (account: string) => string
+      connectedOn: (date: string) => string
+      disconnect: string
+      disconnectTitle: (name: string) => string
+      disconnectBody: string
+      menuRefreshTools: string
+      moreActions: string
+      removeServerTitle: (name: string) => string
+      removeServerBody: string
+      appSwitch: (name: string) => string
+      appSwitchHint: string
+      appSwitchOrg: string
+      waysTitle: (name: string) => string
+      wayHosted: string
+      wayHostedBody: string
+      wayLocalBody: string
+      hostedFooter: (where: string) => string
+      nousLine: string
+      bothOn: (name: string) => string
+      turnOffLocal: string
+      rulesReadOnly: string
+      rulesAppOff: (name: string) => string
+      rulesSignIn: string
+      orgNote: (count: number) => string
+      orgLink: string
+      connectEnded: string
+      connectOpenAgain: string
+      whereItLives: string
+      whatItCosts: string
+      tokensPerCall: string
+      usesPerMonth: string
+      advanced: string
+      advancedHint: string
+    }
+    tools: {
+      title: string
+      summaryTitle: (name: string) => string
+      summaryPreviewTitle: (name: string) => string
+      summaryCount: (count: number) => string
+      summaryAllTools: string
+      summaryOther: string
+      allToolsSwitch: string
+      summaryAllOn: string
+      summarySomeOn: (on: number, total: number) => string
+      summaryOff: string
+      showAllTools: (count: number) => string
+      showSummary: string
+      facetSwitch: (facet: string) => string
+      moreHints: (count: number) => string
+      staleSignIn: string
+      searchCountPlaceholder: (count: number) => string
+      freshnessJustNow: string
+      freshnessHours: (hours: number) => string
+      freshnessDays: (days: number) => string
+      refresh: string
+      refreshing: string
+      toolList: (name: string) => string
+      categorySelect: (count: number) => string
+      showDeprecated: (count: number) => string
+      hideDeprecated: (count: number) => string
+      quickReadOnly: string
+      quickNoDestructive: string
+      quickEverythingOn: string
+      lockedHint: string
+      turnToolOn: (tool: string) => string
+      turnToolOff: (tool: string) => string
+      showDetails: (tool: string) => string
+      hideDetails: (tool: string) => string
+      noMatch: string
+      loading: string
+      unavailableLine: string
+      needsAuthTitle: (name: string) => string
+      needsAuthBody: string
+      retry: string
+      goneTitle: (name: string) => string
+      goneBody: string
+      remove: string
+      offTitle: (name: string) => string
+      offBody: string
+      signedOutTitle: string
+      signedOutBody: string
+      conflictTitle: string
+      conflictBody: (theyOff: number, theyOn: number) => string
+      conflictReload: string
+      conflictSave: string
+      saveFailed: string
+      footerDirty: (off: number, backOn: number) => string
+      discard: string
+      save: string
+      saving: string
+    }
+    /** Keyed by `VocabularyKey` in `app/capabilities/connectors/hint-vocabulary.ts`. */
+    vocabulary: Record<
+      | 'facetDestructive'
+      | 'facetRead'
+      | 'facetUnclassified'
+      | 'facetWrite'
+      | 'hintCreate'
+      | 'hintDelete'
+      | 'hintDestructive'
+      | 'hintIdempotent'
+      | 'hintOpenWorld'
+      | 'hintReadOnly'
+      | 'hintUpdate',
+      { label: string; long: string }
+    >
+  }
   sessionImport: {
     title: string
     subtitle: string
