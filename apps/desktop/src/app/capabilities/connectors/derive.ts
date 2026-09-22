@@ -1,6 +1,7 @@
 import { connectorTitle } from '@/lib/connector-tools'
 
 import type {
+  BundledEntryInput,
   ConnectorCardModel,
   ConnectorFact,
   ConnectorReason,
@@ -65,7 +66,7 @@ const HOSTED_WORDS = {
 } satisfies Record<ConnectorState, ConnectorStateWord>
 
 const LOCAL_WORDS = {
-  available: 'notInstalled',
+  available: 'available',
   broken: 'serverError',
   connected: 'serverOn',
   connecting: 'serverConnecting',
@@ -142,6 +143,8 @@ export function localWay(server: LocalServerInput): ConnectorWayLocal {
 
   return {
     fact: localFact(server, phase.state),
+    inCatalog: server.inCatalog,
+    installed: true,
     plugin: server.plugin,
     reason: phase.reason ? { key: phase.reason } : undefined,
     serverEnabled: server.enabled,
@@ -153,6 +156,28 @@ export function localWay(server: LocalServerInput): ConnectorWayLocal {
   }
 }
 
+export function bundledWay(entry: BundledEntryInput): ConnectorWayLocal {
+  return {
+    authType: entry.authType,
+    entryName: entry.name,
+    inCatalog: true,
+    installed: false,
+    needsEnv: entry.needsEnv,
+    state: 'available',
+    verb: 'install'
+  }
+}
+
+/** True when Hermes would see the app's tools twice. */
+export function bothWaysOn({ hosted, local }: ConnectorWays): boolean {
+  return (
+    hosted?.state === 'connected' &&
+    local?.installed === true &&
+    local.serverEnabled === true &&
+    local.state === 'connected'
+  )
+}
+
 type Speaker = { kind: 'hosted'; way: ConnectorWayHosted } | { kind: 'local'; way: ConnectorWayLocal }
 
 function speakerOf(ways: ConnectorWays): Speaker {
@@ -160,10 +185,14 @@ function speakerOf(ways: ConnectorWays): Speaker {
     return { kind: 'hosted', way: ways.hosted }
   }
 
+  if (ways.local?.installed === true) {
+    return { kind: 'local', way: ways.local }
+  }
+
   return ways.hosted === null ? { kind: 'local', way: ways.local } : { kind: 'hosted', way: ways.hosted }
 }
 
-function hostedWord(way: ConnectorWayHosted): ConnectorStateWord {
+export function hostedStateWord(way: ConnectorWayHosted): ConnectorStateWord {
   return way.offBy === 'org' ? 'offByYourOrganisation' : HOSTED_WORDS[way.state]
 }
 
@@ -185,7 +214,16 @@ export interface MergeCardInput {
 
 export function mergeCard({ description, inCatalog, name, slug, ways }: MergeCardInput): ConnectorCardModel {
   const speaker = speakerOf(ways)
-  const base = { description, fact: speaker.way.fact, inCatalog, name, reason: speaker.way.reason, slug, ways }
+
+  const base = {
+    description,
+    fact: speaker.way.fact,
+    inCatalog: inCatalog || ways.local?.inCatalog === true,
+    name,
+    reason: speaker.way.reason,
+    slug,
+    ways
+  }
 
   if (speaker.kind === 'hosted') {
     return {
@@ -193,7 +231,7 @@ export function mergeCard({ description, inCatalog, name, slug, ways }: MergeCar
       offBy: speaker.way.offBy,
       residency: 'hosted',
       state: speaker.way.state,
-      stateWord: hostedWord(speaker.way),
+      stateWord: hostedStateWord(speaker.way),
       verb: speaker.way.verb
     }
   }
@@ -224,27 +262,42 @@ export function localServerName(card: ConnectorCardModel): string {
   return card.ways.local?.serverName ?? card.slug
 }
 
+/** The other way this app could run, when the card is not already speaking for it. */
+export type ConnectorTwinPill = 'alsoLocal' | 'hostedTwin' | null
+
+export function twinPillOf({ residency, ways }: ConnectorCardModel): ConnectorTwinPill {
+  if (residency === 'local') {
+    return ways.hosted && ways.hosted.state !== 'off' ? 'hostedTwin' : null
+  }
+
+  return ways.local?.installed === true ? 'alsoLocal' : null
+}
+
 export interface DeriveCardsInput {
+  bundled?: readonly BundledEntryInput[]
   hosted: readonly HostedConnectorInput[]
   local: readonly LocalServerInput[]
   titles?: Readonly<Record<string, string>>
 }
 
 interface CardParts {
+  bundled?: BundledEntryInput
   hosted?: HostedConnectorInput
   local?: LocalServerInput
 }
 
-// The seam: nothing on the wire pairs a hosted app with a local server, so the two keys never collide.
+// The seam: a manifest's `connector_slug` is the only pairing key, so a server without one keys on its name.
 export const hostedCardKey = (slug: string) => `hosted:${slug}`
 
 export const localCardKey = (name: string) => `local:${name}`
 
 export const cardKey = (card: ConnectorCardModel): string =>
-  card.residency === 'local' ? localCardKey(card.slug) : hostedCardKey(card.slug)
+  card.ways.hosted === null ? localCardKey(card.slug) : hostedCardKey(card.slug)
+
+const mergeKey = (connectorSlug: string | undefined, name: string) => connectorSlug ?? localCardKey(name)
 
 function waysOf(parts: CardParts): ConnectorWays | null {
-  const local = parts.local ? localWay(parts.local) : null
+  const local = parts.local ? localWay(parts.local) : parts.bundled ? bundledWay(parts.bundled) : null
 
   if (parts.hosted) {
     return { hosted: hostedWay(parts.hosted), local }
@@ -253,37 +306,85 @@ function waysOf(parts: CardParts): ConnectorWays | null {
   return local ? { hosted: null, local } : null
 }
 
-export function deriveCards({ hosted, local, titles = {} }: DeriveCardsInput): ConnectorCardModel[] {
+function slotAt(parts: Map<string, CardParts>, key: string): CardParts {
+  const found = parts.get(key)
+
+  if (found) {
+    return found
+  }
+
+  const fresh: CardParts = {}
+  parts.set(key, fresh)
+
+  return fresh
+}
+
+// The slug stays the hosted slug, or the server's config key, so a deep link can still address the card.
+function slugOf({ bundled, hosted, local }: CardParts): string {
+  return hosted?.slug ?? local?.name ?? bundled?.name ?? ''
+}
+
+function descriptionOf({ bundled, hosted, local }: CardParts): string | undefined {
+  return hosted?.description ?? local?.description ?? bundled?.description
+}
+
+// An install must not rename the app: the bundled entry and the server it becomes read the same way.
+function nameOf(
+  { bundled, hosted, local }: CardParts,
+  titles: Readonly<Record<string, string>>,
+  slug: string
+): string {
+  const key = hosted?.slug ?? local?.connectorSlug ?? bundled?.connectorSlug ?? slug
+
+  return titles[key] ?? connectorTitle(local?.name ?? bundled?.name ?? slug)
+}
+
+function cardOf(slot: CardParts, titles: Readonly<Record<string, string>>): ConnectorCardModel | null {
+  const ways = waysOf(slot)
+
+  if (!ways) {
+    return null
+  }
+
+  const slug = slugOf(slot)
+
+  return mergeCard({
+    description: descriptionOf(slot),
+    inCatalog: slot.hosted?.inCatalog ?? false,
+    name: nameOf(slot, titles, slug),
+    slug,
+    ways
+  })
+}
+
+export function deriveCards({ bundled = [], hosted, local, titles = {} }: DeriveCardsInput): ConnectorCardModel[] {
   const parts = new Map<string, CardParts>()
 
   for (const row of hosted) {
-    parts.set(hostedCardKey(row.slug), { hosted: row })
+    slotAt(parts, row.slug).hosted = row
   }
 
   for (const server of local) {
-    parts.set(localCardKey(server.name), { local: server })
+    slotAt(parts, mergeKey(server.connectorSlug, server.name)).local = server
+  }
+
+  for (const entry of bundled) {
+    const slot = slotAt(parts, mergeKey(entry.connectorSlug, entry.name))
+
+    // An installed server always beats the bundled entry of the same app.
+    if (!slot.local) {
+      slot.bundled = entry
+    }
   }
 
   const cards: ConnectorCardModel[] = []
 
   for (const slot of parts.values()) {
-    const ways = waysOf(slot)
+    const card = cardOf(slot, titles)
 
-    if (!ways) {
-      continue
+    if (card) {
+      cards.push(card)
     }
-
-    const slug = slot.hosted?.slug ?? slot.local?.name ?? ''
-
-    cards.push(
-      mergeCard({
-        description: slot.hosted?.description,
-        inCatalog: slot.hosted?.inCatalog ?? false,
-        name: titles[slug] ?? connectorTitle(slug),
-        slug,
-        ways
-      })
-    )
   }
 
   return cards

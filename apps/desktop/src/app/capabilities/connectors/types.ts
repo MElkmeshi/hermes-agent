@@ -19,7 +19,11 @@ export interface HostedConnectorInput {
 
 export interface LocalServerInput {
   canAuthenticate?: boolean
+  /** The hosted slug this server's catalog manifest declares. The only key that pairs the two ways. */
+  connectorSlug?: string
+  description?: string
   enabled: boolean
+  inCatalog?: boolean
   name: string
   /** Set when a plugin owns this server: it is outside mcp.json and nothing here may write it. */
   plugin?: string
@@ -28,6 +32,16 @@ export interface LocalServerInput {
   toolsOn?: number
   toolsTotal?: number
   unused?: boolean
+}
+
+export type ConnectorAuthType = 'apiKey' | 'none' | 'oauth'
+
+export interface BundledEntryInput {
+  authType: ConnectorAuthType
+  connectorSlug?: string
+  description?: string
+  name: string
+  needsEnv: boolean
 }
 
 export interface ToolInput {
@@ -51,7 +65,6 @@ export type ConnectorStateWord =
   | 'connecting'
   | 'connectionUnknown'
   | 'couldNotConnect'
-  | 'notInstalled'
   | 'offByYourOrganisation'
   | 'offForYou'
   | 'serverConnecting'
@@ -75,7 +88,7 @@ export interface ConnectorReason {
 }
 
 export type ConnectorVerb =
-  'authenticate' | 'connect' | 'openLogs' | 'reconnect' | 'stopWaiting' | 'tryAgain' | 'turnBackOn'
+  'authenticate' | 'connect' | 'install' | 'openLogs' | 'reconnect' | 'stopWaiting' | 'tryAgain' | 'turnBackOn'
 
 export interface ConnectorWayHosted {
   accountLabel?: string
@@ -90,7 +103,13 @@ export interface ConnectorWayHosted {
 }
 
 export interface ConnectorWayLocal {
+  authType?: ConnectorAuthType
+  /** The catalog manifest's own name, which is what the install call takes. */
+  entryName?: string
   fact?: ConnectorFact
+  inCatalog?: boolean
+  installed?: boolean
+  needsEnv?: boolean
   plugin?: string
   reason?: ConnectorReason
   serverEnabled?: boolean

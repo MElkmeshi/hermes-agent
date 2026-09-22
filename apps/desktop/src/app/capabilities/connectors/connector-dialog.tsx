@@ -12,9 +12,10 @@ import { X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import { CatalogMark } from './catalog-mark'
-import { connectorKindWord } from './connector-kind'
-import { LocalServerControl } from './local-server-control'
+import { connectorKindWord, showsCatalogMark } from './connector-kind'
+import { type InstallField, LocalInstall, LocalServerControl } from './local-server-control'
 import type { ConnectorCardModel, ConnectorState, ConnectorVerb, ConnectorWayHosted } from './types'
+import { WaysSection } from './ways-section'
 
 type BadgeVariant = 'default' | 'destructive' | 'muted' | 'success' | 'warn'
 
@@ -45,10 +46,17 @@ export interface ConnectorDialogProps {
   card: ConnectorCardModel
   connectElement?: ReactNode
   cost?: { tokensPerCall?: string; usesPerMonth?: string }
+  /** The catalog entry's credential fields, while its install still needs them. */
+  installFields?: readonly InstallField[]
+  installing?: boolean
   menu?: ReactNode
   onAuthenticate?: () => void
+  onConnect?: () => void
+  onDisconnect?: () => void
+  onInstall?: (env: Record<string, string>) => void
   onOpenAdmin?: () => void
   onOpenChange: (open: boolean) => void
+  onReconnect?: () => void
   onServerToggle?: (next: boolean) => void
   onToggleForMe?: (next: boolean) => void
   onVerb?: () => void
@@ -124,7 +132,7 @@ function Header({
 
           <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">{connectorKindWord(card, copy)}</span>
 
-          {card.inCatalog && !local ? <CatalogMark /> : null}
+          {showsCatalogMark(card) ? <CatalogMark /> : null}
 
           <Badge className="shrink-0" size="xs" variant={STATE_BADGE[card.state]}>
             {copy.state[card.stateWord]}
@@ -184,15 +192,29 @@ function leadVerb({
   return { run: onVerb, verb }
 }
 
-function HostedLead({ card, connectElement, onOpenAdmin, onToggleForMe, onVerb, orgDisabledCount = 0 }: PartProps) {
+function HostedLead({
+  card,
+  connectElement,
+  installFields,
+  installing,
+  onAuthenticate,
+  onDisconnect,
+  onInstall,
+  onOpenAdmin,
+  onServerToggle,
+  onToggleForMe,
+  onVerb,
+  orgDisabledCount = 0
+}: PartProps) {
   const { t } = useI18n()
   const hosted = card.ways.hosted
   const reason = card.reason ? (card.reason.text ?? t.connectorsPage.card.reason[card.reason.key]) : undefined
   const appSwitch = ruleable(hosted) && onToggleForMe !== undefined
   const offerVerb = leadVerb({ appSwitch, card, hasElement: connectElement !== undefined, onVerb })
   const showsReason = reason !== undefined && connectElement === undefined
+  const paired = card.ways.local !== null
 
-  if (connectElement === undefined && offerVerb === undefined && !showsReason && orgDisabledCount <= 0) {
+  if (!paired && connectElement === undefined && offerVerb === undefined && !showsReason && orgDisabledCount <= 0) {
     return null
   }
 
@@ -209,6 +231,17 @@ function HostedLead({ card, connectElement, onOpenAdmin, onToggleForMe, onVerb, 
       )}
 
       <OrgNote count={orgDisabledCount} onOpenAdmin={onOpenAdmin} />
+
+      <WaysSection
+        card={card}
+        hostedVerb={false}
+        installFields={installFields}
+        installing={installing}
+        onAuthenticate={onAuthenticate}
+        onDisconnect={onDisconnect}
+        onInstall={onInstall}
+        onServerToggle={onServerToggle}
+      />
     </div>
   )
 }
@@ -219,7 +252,16 @@ function HostedFoot({ card }: PartProps) {
   return card.ways.hosted ? <FootLine>{t.connectorsPage.dialog.nousLine}</FootLine> : null
 }
 
-function LocalLead({ card, onAuthenticate, onServerToggle }: PartProps) {
+function LocalLead({
+  card,
+  installFields,
+  installing,
+  onAuthenticate,
+  onConnect,
+  onInstall,
+  onReconnect,
+  onServerToggle
+}: PartProps) {
   const local = card.ways.local
 
   if (!local) {
@@ -228,12 +270,27 @@ function LocalLead({ card, onAuthenticate, onServerToggle }: PartProps) {
 
   return (
     <div className="shrink-0 border-b border-(--ui-stroke-tertiary) px-3.5 py-2.5">
-      <LocalServerControl
-        name={card.name}
-        onAuthenticate={onAuthenticate}
-        onServerToggle={card.plugin === undefined ? onServerToggle : undefined}
-        way={local}
-      />
+      {card.ways.hosted ? (
+        <WaysSection
+          card={card}
+          installFields={installFields}
+          installing={installing}
+          onAuthenticate={onAuthenticate}
+          onConnect={onConnect}
+          onInstall={onInstall}
+          onReconnect={onReconnect}
+          onServerToggle={card.plugin === undefined ? onServerToggle : undefined}
+        />
+      ) : local.installed === false && onInstall ? (
+        <LocalInstall installFields={installFields} installing={installing} onInstall={onInstall} />
+      ) : (
+        <LocalServerControl
+          name={card.name}
+          onAuthenticate={onAuthenticate}
+          onServerToggle={card.plugin === undefined ? onServerToggle : undefined}
+          way={local}
+        />
+      )}
     </div>
   )
 }

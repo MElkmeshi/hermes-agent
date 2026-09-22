@@ -9,12 +9,21 @@ import type {
   McpServerSummary
 } from '@hermes/shared'
 
+import type { McpCatalogEntry } from '@/hermes'
 import { connectorTitle } from '@/lib/connector-tools'
 import type { McpServers } from '@/lib/mcp-servers'
 
 import { canAuthenticate } from '../../mcp/mcp-status'
 import { toolRows } from '../derive-tools'
-import type { HostedConnectorInput, LocalServerInput, LocalServerStatus, ToolInput, ToolRowModel } from '../types'
+import type {
+  BundledEntryInput,
+  ConnectorAuthType,
+  HostedConnectorInput,
+  LocalServerInput,
+  LocalServerStatus,
+  ToolInput,
+  ToolRowModel
+} from '../types'
 
 export interface ConnectorPolicyTagRules {
   disable: readonly string[]
@@ -194,6 +203,8 @@ export function joinHostedConnectors({
 }
 
 export interface LocalJoinInput {
+  /** The shipped manifests. Their `connector_slug` is the only source for the hosted app a server backs. */
+  catalog: readonly McpCatalogEntry[]
   servers: McpServers
   status: Readonly<Record<string, LocalServerStatus>>
   toolCounts?: Readonly<Record<string, { on: number; total: number }>>
@@ -219,15 +230,25 @@ const targetOf = (entry: McpServers[string]): string => {
   return [text(command) ?? '', ...parts].join(' ').trim()
 }
 
-export function joinLocalServers({ servers, status, toolCounts, usage }: LocalJoinInput): LocalServerInput[] {
+export function joinLocalServers({
+  catalog,
+  servers,
+  status,
+  toolCounts,
+  usage
+}: LocalJoinInput): LocalServerInput[] {
   return Object.entries(servers).map(([name, entry]) => {
+    const bundled = catalog.find(candidate => candidate.name === name)
     const counts = toolCounts?.[name]
     const calls = usage?.[name]
     const raw = status[name] ?? 'unknown'
 
     return {
       canAuthenticate: canAuthenticate(entry, raw),
+      connectorSlug: text(bundled?.connector_slug),
+      description: text(bundled?.description),
       enabled: entry.enabled !== false,
+      inCatalog: bundled !== undefined,
       name,
       status: raw,
       target: targetOf(entry),
@@ -236,6 +257,25 @@ export function joinLocalServers({ servers, status, toolCounts, usage }: LocalJo
       unused: calls === undefined ? undefined : calls === 0
     }
   })
+}
+
+function authTypeOf(declared: string): ConnectorAuthType {
+  if (declared === 'api_key') {
+    return 'apiKey'
+  }
+
+  return declared === 'oauth' ? 'oauth' : 'none'
+}
+
+/** Every ready-to-install manifest becomes an Available card, so there is one directory and one flow. */
+export function joinBundledEntries(catalog: readonly McpCatalogEntry[]): BundledEntryInput[] {
+  return catalog.map(entry => ({
+    authType: authTypeOf(entry.auth_type),
+    connectorSlug: text(entry.connector_slug),
+    description: text(entry.description),
+    name: entry.name,
+    needsEnv: entry.required_env.some(field => field.required)
+  }))
 }
 
 const RUNTIME_STATUS = {

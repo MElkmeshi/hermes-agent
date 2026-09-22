@@ -117,9 +117,12 @@ export interface Translations {
     }
     card: {
       kindManaged: string
+      kindCatalog: string
       kindCustom: string
       kindPlugin: (plugin: string) => string
       inCatalog: string
+      hostedTwin: string
+      alsoLocal: string
       open: (name: string) => string
       turnServerOn: (name: string) => string
       turnServerOff: (name: string) => string
@@ -130,7 +133,6 @@ export interface Translations {
         connecting: string
         connectionUnknown: string
         couldNotConnect: string
-        notInstalled: string
         offByYourOrganisation: string
         offForYou: string
         serverConnecting: string
@@ -149,6 +151,7 @@ export interface Translations {
       verb: {
         authenticate: string
         connect: string
+        install: string
         openLogs: string
         reconnect: string
         stopWaiting: string
@@ -177,6 +180,7 @@ export interface Translations {
       freeTierNote: string
       signInLine: string
       signIn: string
+      managedUnavailable: string
       writeFailed: string
       refreshFailed: string
       disconnectNoAccount: string
@@ -223,6 +227,10 @@ export interface Translations {
       removeServerTitle: (name: string) => string
       removeServerBody: string
       appSwitch: (name: string) => string
+      waysTitle: (name: string) => string
+      wayHosted: string
+      bothOn: (name: string) => string
+      turnOffLocal: string
       providedByPlugin: (plugin: string) => string
       openPlugins: string
       nousLine: string
@@ -240,6 +248,7 @@ export interface Translations {
     }
     tools: {
       title: string
+      notInstalledBody: string
       summaryTitle: (name: string) => string
       summaryPreviewTitle: (name: string) => string
       summaryCount: (count: number) => string

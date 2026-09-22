@@ -3699,6 +3699,7 @@ export interface McpCatalogResult {
 export interface McpCatalogEntry {
   name: string
   description: string
+  connector_slug?: string | null
   installed: boolean
   enabled: boolean
   requires: string[]

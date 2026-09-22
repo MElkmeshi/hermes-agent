@@ -8,5 +8,14 @@ export function connectorKindWord(card: ConnectorCardModel, copy: Translations['
     return copy.kindManaged
   }
 
-  return card.plugin ? copy.kindPlugin(card.plugin) : copy.kindCustom
+  if (card.plugin) {
+    return copy.kindPlugin(card.plugin)
+  }
+
+  return card.ways.local?.inCatalog === true ? copy.kindCatalog : copy.kindCustom
+}
+
+/** We ship a manifest, or Nous hosts it. Never a server the person wrote, never a plugin's. */
+export function showsCatalogMark(card: ConnectorCardModel): boolean {
+  return card.inCatalog && card.plugin === undefined
 }

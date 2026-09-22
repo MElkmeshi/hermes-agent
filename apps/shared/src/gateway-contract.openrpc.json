@@ -15124,6 +15124,18 @@
             "title": "Description",
             "type": "string"
           },
+          "connector_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Connector Slug"
+          },
           "installed": {
             "title": "Installed",
             "type": "boolean"

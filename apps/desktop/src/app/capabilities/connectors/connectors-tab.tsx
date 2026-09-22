@@ -10,22 +10,30 @@ import { $freeTierStatus } from '@/store/free-tier'
 import { openFreeTierSignIn } from '@/store/free-tier-sign-in'
 import { notifyError, readableError } from '@/store/notifications'
 
+import { installBundledEntry } from '../mcp/install-catalog-entry'
 import { useMcpServers } from '../mcp/use-mcp-servers'
 
 import { AddServerDialog } from './add-dialog'
 import { ConnectorsDirectory } from './connectors-directory'
 import { $abandonedConnects, $accountOperations, abandonConnect, accountOperationFor } from './data/account-operations'
-import { joinLocalServers, pickAccount } from './data/join'
+import { joinBundledEntries, joinLocalServers, pickAccount } from './data/join'
 import { useConnectConnector, useConnectorSwitch, useDisconnectAccount } from './data/mutations'
 import { seedLocalServers, startConnectorPersistence, storeLocalServers } from './data/persist'
 import { prefetchConnectorTools, usePrefetchConnectedTools } from './data/prefetch'
 import { useHostedConnectors, usePluginServers } from './data/queries'
-import { cardKey, deriveCards, EMPTY_CONNECTORS_FILTER, forgetAbandoned, hostedCardKey, localServerName } from './derive'
+import {
+  cardKey,
+  deriveCards,
+  EMPTY_CONNECTORS_FILTER,
+  forgetAbandoned,
+  hostedCardKey,
+  localServerName
+} from './derive'
 import { HostedConnectorDialog } from './hosted-dialog'
 import { LocalConnectorDialog } from './local-dialog'
 import { RemoveServerConfirm } from './local-slots'
 import { openToolsList, resetOpenedTools } from './tools-summary'
-import type { ConnectorCardModel, ConnectorsFilter } from './types'
+import type { ConnectorCardModel, ConnectorsFilter, HostedPhase } from './types'
 
 const toolsListKey = (card: ConnectorCardModel) => (card.residency === 'local' ? localServerName(card) : card.slug)
 
@@ -53,17 +61,21 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [removeServer, setRemoveServer] = useState<null | ConnectorCardModel>(null)
   const [disconnecting, setDisconnecting] = useState<null | ConnectorCardModel>(null)
+  const [installing, setInstalling] = useState<null | string>(null)
 
   const local = useMemo(
     () =>
       joinLocalServers({
+        catalog: mcp.catalog,
         servers: mcp.servers,
         status: mcp.statuses,
         toolCounts: mcp.toolCounts,
         usage: mcp.usageByServer
       }),
-    [mcp.servers, mcp.statuses, mcp.toolCounts, mcp.usageByServer]
+    [mcp.catalog, mcp.servers, mcp.statuses, mcp.toolCounts, mcp.usageByServer]
   )
+
+  const bundled = useMemo(() => joinBundledEntries(mcp.availableCatalog), [mcp.availableCatalog])
 
   const lastKnownServers = useMemo(() => seedLocalServers(profile), [profile])
   const pluginServers = usePluginServers(profile)
@@ -82,11 +94,12 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
   const cards = useMemo(
     () =>
       deriveCards({
+        bundled,
         hosted: forgetAbandoned(hosted.rows, new Set(abandoned)),
         local: servers,
         titles: hosted.titles
       }),
-    [abandoned, hosted.rows, hosted.titles, servers]
+    [abandoned, bundled, hosted.rows, hosted.titles, servers]
   )
 
   useEffect(startConnectorPersistence, [])
@@ -128,6 +141,29 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
     setOpenKey(cardKey(card))
   }
 
+  const bundledEntry = (card: ConnectorCardModel) =>
+    mcp.availableCatalog.find(candidate => candidate.name === card.ways.local?.entryName) ?? null
+
+  const startInstall = async (card: ConnectorCardModel, env: Record<string, string>) => {
+    const entry = bundledEntry(card)
+
+    if (!entry) {
+      return
+    }
+
+    setInstalling(cardKey(card))
+
+    try {
+      await installBundledEntry(entry, env, profile)
+      await mcp.onCatalogInstalled()
+      setOpenKey(cardKey(card))
+    } catch (error) {
+      notifyError(error, t.settings.mcp.catalogInstallFailed(card.name))
+    } finally {
+      setInstalling(null)
+    }
+  }
+
   const runVerb = (card: ConnectorCardModel) => {
     const open = accountOperationFor(operations, card.slug)
 
@@ -141,6 +177,16 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
         void startConnect(card, false)
 
         return
+
+      // An entry that asks for credentials cannot install from a card: the fields live in the dialog.
+      case 'install':
+        if (card.ways.local?.entryName && card.ways.local.needsEnv !== true) {
+          void startInstall(card, {})
+
+          return
+        }
+
+        break
 
       case 'reconnect':
 
@@ -179,8 +225,7 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
   }
 
   const busySlug = switcher.pending ?? connector.pending
-
-  const hostedBlank = hosted.phase === 'signedOut' || hosted.phase === 'unavailable'
+  const busyKey = installing ?? (busySlug === null ? null : hostedCardKey(busySlug))
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-2">
@@ -190,27 +235,12 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
             {copy.add.action}
           </Button>
         }
-        busyKey={busySlug === null ? null : hostedCardKey(busySlug)}
+        busyKey={busyKey}
         cards={cards}
         filter={filter}
         hostedFailed={hosted.phase === 'failed'}
-        loading={(hosted.phase === 'loading' || mcp.configLoading) && cards.length === 0}
-        notices={
-          <>
-            {hostedBlank ? (
-              <p className="flex shrink-0 items-center gap-1 text-[0.7rem] text-(--ui-text-tertiary)">
-                {copy.page.signInLine}
-                <Button onClick={() => openFreeTierSignIn()} size="xs" variant="text">
-                  {copy.page.signIn}
-                </Button>
-              </p>
-            ) : null}
-
-            {!hostedBlank && freeTier?.has_guest === true ? (
-              <p className="shrink-0 text-[0.7rem] text-(--ui-text-tertiary)">{copy.page.freeTierNote}</p>
-            ) : null}
-          </>
-        }
+        loading={(hosted.phase === 'loading' || mcp.configLoading || mcp.catalogLoading) && cards.length === 0}
+        notices={<HostedNotice hasGuest={freeTier?.has_guest === true} phase={hosted.phase} />}
         onFilterChange={setFilter}
         onOpen={card => setOpenKey(cardKey(card))}
         onPrefetch={card => {
@@ -232,7 +262,12 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
         <LocalConnectorDialog
           card={openCard}
           controller={mcp}
+          installFields={bundledEntry(openCard)?.required_env}
+          installing={installing === cardKey(openCard)}
           onClose={() => setOpenKey(null)}
+          onConnect={() => void startConnect(openCard, false)}
+          onInstall={env => void startInstall(openCard, env)}
+          onReconnect={() => void startConnect(openCard, true)}
           onRemoveServer={() => setRemoveServer(openCard)}
         />
       ) : null}
@@ -240,11 +275,17 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
       {openCard?.residency === 'hosted' ? (
         <HostedConnectorDialog
           card={openCard}
+          controller={mcp}
           hosted={hosted}
+          installFields={bundledEntry(openCard)?.required_env}
+          installing={installing === cardKey(openCard)}
           onClose={() => setOpenKey(null)}
+          onConnect={() => void startConnect(openCard, false)}
           onDisconnect={() => setDisconnecting(openCard)}
           onGiveUp={opId => void write(connector.giveUp(opId))}
+          onInstall={env => void startInstall(openCard, env)}
           onReconnect={() => void startConnect(openCard, true)}
+          onRemoveServer={() => setRemoveServer(openCard)}
           onToggleForMe={next => void write(switcher.setEnabled(openCard.slug, next))}
           onVerb={() => runVerb(openCard)}
           profile={profile}
@@ -287,6 +328,29 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
       />
     </div>
   )
+}
+
+/** The page renders whole without the managed half: one quiet line says why, and nothing reads as a failure. */
+function HostedNotice({ hasGuest, phase }: { hasGuest: boolean; phase: HostedPhase }) {
+  const { t } = useI18n()
+  const copy = t.connectorsPage.page
+
+  if (phase === 'signedOut') {
+    return (
+      <p className="flex shrink-0 items-center gap-1 text-[0.7rem] text-(--ui-text-tertiary)">
+        {copy.signInLine}
+        <Button onClick={() => openFreeTierSignIn()} size="xs" variant="text">
+          {copy.signIn}
+        </Button>
+      </p>
+    )
+  }
+
+  if (phase === 'unavailable') {
+    return <p className="shrink-0 text-[0.7rem] text-(--ui-text-tertiary)">{copy.managedUnavailable}</p>
+  }
+
+  return hasGuest ? <p className="shrink-0 text-[0.7rem] text-(--ui-text-tertiary)">{copy.freeTierNote}</p> : null
 }
 
 function useOpenFromRoute(cards: readonly ConnectorCardModel[], open: (key: string) => void): void {
