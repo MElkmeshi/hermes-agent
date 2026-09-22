@@ -18,9 +18,9 @@ const persists = (read: PersistedRead, identity: PersistedIdentity): boolean => 
   return read === 'bundled' || read === 'servers' || CONNECTOR_LIFETIMES[read].persist
 }
 
-const STORAGE_PREFIX = 'hermes.connectors.v2.'
+const STORAGE_PREFIX = 'hermes.connectors.v3.'
 
-const IDENTITY_KEY = 'hermes.connectors.identity.v2'
+const IDENTITY_KEY = 'hermes.connectors.identity.v3'
 
 const PERSIST_MAX_BYTES = 256 * 1024
 
