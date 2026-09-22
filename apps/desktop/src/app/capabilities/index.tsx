@@ -68,9 +68,6 @@ export function CapabilitiesView({
   const routeTab = useRouteEnumParam('tab', CAPABILITY_MODES, 'skills')
   const localTab = useState<CapabilityMode>('skills')
   const [mode, setMode] = embedded ? localTab : routeTab
-  // $gateway only feeds the Connectors tab's local servers — gate the
-  // subscription so Skills/Toolsets tabs don't re-render on
-  // connect/disconnect/reconnect.
   const gateway = useStoreSelector($gateway, g => (mode === 'connectors' ? g : null))
 
   const [query, setQuery] = useState('')
@@ -137,11 +134,9 @@ export function CapabilitiesView({
     <PageLoader label={t.skills.loading} />
   )
 
-  // Keyed on the scope, so one profile's selection or pending install never stands over another's backend.
   const tabContent = {
     // The gateway instance backs ONLY the live `reload.mcp` RPC, and it is the
     // ACTIVE gateway's socket — for a scope pinned to a different backend that
-    // RPC would hot-reload the wrong machine's MCP servers, so it is withheld
     // (config edits still apply on that backend's next session).
     connectors: () => (
       <ConnectorsTab
@@ -192,9 +187,7 @@ export function CapabilitiesView({
         { id: 'plugins', label: t.skills.tabPlugins }
       ]}
     >
-      {/* One shared column: the scope selector sits above whichever tab is
-          active, so Skills / Tools / Connectors all read and write the SAME
-          selected profile. */}
+      
       <div className="flex h-full flex-col">
         {mode !== 'plugins' && <CapabilityScopeSelector scope={scope} />}
         <div className="flex min-h-0 flex-1 flex-col">

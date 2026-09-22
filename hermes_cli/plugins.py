@@ -1535,7 +1535,6 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
         return {name: dict(config) for name, config in self._portable_mcp_servers.items()}
 
     def get_portable_mcp_server_plugins(self) -> Dict[str, str]:
-        """Return the owning plugin id for each enabled portable MCP server."""
         return dict(self._portable_mcp_server_plugins)
 
     def remove_plugin_skill(self, qualified_name: str) -> None:

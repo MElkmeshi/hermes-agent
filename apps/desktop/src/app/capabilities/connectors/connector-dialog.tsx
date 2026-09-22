@@ -46,7 +46,6 @@ export interface ConnectorDialogProps {
   card: ConnectorCardModel
   connectElement?: ReactNode
   cost?: { tokensPerCall?: string; usesPerMonth?: string }
-  /** The catalog entry's credential fields, while its install still needs them. */
   installFields?: readonly InstallField[]
   installing?: boolean
   menu?: ReactNode

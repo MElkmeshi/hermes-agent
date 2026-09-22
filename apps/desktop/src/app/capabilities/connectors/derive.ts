@@ -168,7 +168,6 @@ export function bundledWay(entry: BundledEntryInput): ConnectorWayLocal {
   }
 }
 
-/** True when Hermes would see the app's tools twice. */
 export function bothWaysOn({ hosted, local }: ConnectorWays): boolean {
   return (
     hosted?.state === 'connected' &&
@@ -262,7 +261,6 @@ export function localServerName(card: ConnectorCardModel): string {
   return card.ways.local?.serverName ?? card.slug
 }
 
-/** The other way this app could run, when the card is not already speaking for it. */
 export type ConnectorTwinPill = 'alsoLocal' | 'hostedTwin' | null
 
 export function twinPillOf({ residency, ways }: ConnectorCardModel): ConnectorTwinPill {
@@ -286,7 +284,6 @@ interface CardParts {
   local?: LocalServerInput
 }
 
-// The seam: a manifest's `connector_slug` is the only pairing key, so a server without one keys on its name.
 export const hostedCardKey = (slug: string) => `hosted:${slug}`
 
 export const localCardKey = (name: string) => `local:${name}`

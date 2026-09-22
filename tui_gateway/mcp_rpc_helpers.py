@@ -10,7 +10,6 @@ from typing import Any, Dict, Mapping
 
 
 def server_configs_with_sources(config_servers: Mapping[str, dict]) -> tuple[Dict[str, dict], Dict[str, str | None]]:
-    """Merge config and portable MCP servers with the runtime's config precedence."""
     servers = {name: dict(cfg) for name, cfg in config_servers.items() if isinstance(cfg, dict)}
     plugins: Dict[str, str | None] = {name: None for name in servers}
     try:
@@ -31,11 +30,6 @@ def server_configs_with_sources(config_servers: Mapping[str, dict]) -> tuple[Dic
 
 
 def summarize_server(name: str, cfg: dict, plugin: str | None = None) -> Dict[str, Any]:
-    """Serialize one server's config for a UI (no secret values).
-
-    Mirrors web_server._mcp_server_summary plus ``oauth_tokens_present`` so a UI can
-    tell an OAuth server that still needs authentication from one already authenticated.
-    """
     from hermes_cli.mcp_config import _oauth_tokens_present
 
     cfg = cfg if isinstance(cfg, dict) else {}

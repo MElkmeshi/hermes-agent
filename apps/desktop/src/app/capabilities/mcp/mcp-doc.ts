@@ -1,4 +1,3 @@
-// The mcp.json document the editor shows: written and parsed here, stored as the config.yaml `mcp_servers` map.
 
 // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `isServerShape` is main's exported name, shared with mcp-tab.tsx; it is bound to a domain name here instead of renaming the export.
 import { type McpServerEntry, type McpServers, isServerShape as namesAServer, normalizeEntry } from '@/lib/mcp-servers'
@@ -7,7 +6,6 @@ export const STARTER_ENTRY = { command: 'npx', args: ['-y', '@modelcontextprotoc
 
 export const wrapDoc = (entries: McpServers) => JSON.stringify({ mcpServers: entries }, null, 2)
 
-/** Accepts `{"mcpServers": {...}}` (ecosystem), a bare name→config map, or throws. */
 export function parseServersDoc(raw: string): McpServers {
   const parsed: unknown = JSON.parse(raw)
 
@@ -30,11 +28,8 @@ export function parseServersDoc(raw: string): McpServers {
   return Object.fromEntries(Object.entries(map).map(([name, entry]) => [name, normalizeEntry(entry)]))
 }
 
-// The runtime gate is `enabled: false` — the same flag `hermes mcp` and the
-// agent's MCP loader read.
 export const serverEnabled = (server: McpServerEntry) => server.enabled !== false
 
-/** `enabled: false` written or removed. Absent means on, so on deletes the key. */
 export function withEnabled(server: McpServerEntry, enabled: boolean): McpServerEntry {
   const next = { ...server }
 
@@ -47,7 +42,6 @@ export function withEnabled(server: McpServerEntry, enabled: boolean): McpServer
   return next
 }
 
-/** A key nothing in `taken` already uses: `name`, `name-2`, `name-3`, … */
 export function uniqueServerKey(taken: McpServers, name: string): string {
   let key = name
 

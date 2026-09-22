@@ -158,7 +158,6 @@ export function useHostedConnectors(scope: ProfileScope): HostedConnectorsView {
 
 const NO_PLUGIN_SERVERS: LocalServerInput[] = []
 
-/** The plugin-provided servers, which mcp.json — and so the config record — never lists. */
 export function usePluginServers(scope: ProfileScope): LocalServerInput[] {
   const plugins = useQuery({
     gcTime: CONNECTOR_GC_TIME,

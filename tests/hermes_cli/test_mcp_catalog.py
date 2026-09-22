@@ -993,7 +993,6 @@ class TestShippedCatalog:
         monkeypatch.setattr("hermes_cli.mcp_catalog._catalog_root", lambda: source_catalog)
         slugs = [entry.connector_slug for entry in list_catalog() if entry.connector_slug is not None]
 
-        # A malformed ``connector_slug:`` field drops its whole manifest, so validity shows up as a diagnostic.
         assert catalog_diagnostics() == []
         assert slugs
         assert len(slugs) == len(set(slugs))

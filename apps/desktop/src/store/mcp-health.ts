@@ -97,7 +97,6 @@ let sweepQueued = false
 let offGatewayState: (() => void) | null = null
 let offProfile: (() => void) | null = null
 
-// Navigation only — never auto-launch an OAuth flow from the background.
 function openMcpServerPage(name: string): void {
   window.location.hash = `#/capabilities?tab=connectors&server=${encodeURIComponent(name)}`
 }

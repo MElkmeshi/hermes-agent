@@ -1,4 +1,3 @@
-// The probe fleet and the 30-day usage overlay: what each server answers, and what it costs.
 
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -13,23 +12,17 @@ import { loadMcpUsage, okProbe, type Probe, serverCost, type ServerCost } from '
 export interface McpProbes {
   costFor: (name: string, entry: McpServerEntry) => ServerCost
   probes: Record<string, Probe>
-  /** Forget every probe and the usage overlay; the caller bumps the epoch. */
   resetForProfileSwitch: () => void
-  /** After a whole-document save: keep only probes whose server survived unchanged. */
   retainProbes: (entries: McpServers, prevServers: McpServers) => void
   runProbe: (name: string) => Promise<void>
   setProbe: (name: string, value: Probe) => void
-  /** Registered/discovered tool counts per server. Absent until probed. */
   toolCounts: Record<string, { on: number; total: number }>
-  /** 30-day call counts per SERVER, for the page's "unused" pill. */
   usageByServer: Record<string, number>
 }
 
 export interface UseMcpProbesOptions {
-  /** The app-wide profile, for the usage fetch when no scope is selected. */
   appProfile: ProfileScope
   profile?: ProfileScope
-  /** Bumped by the owner on every profile switch; an async result from the old epoch is dropped. */
   profileEpoch: RefObject<number>
   scopeProfileKey: string
   servers: McpServers
@@ -46,8 +39,6 @@ export function useMcpProbes({
   const probesRef = useRef(probes)
   probesRef.current = probes
 
-  // 30-day per-tool call counts (registry names). null = analytics unavailable
-  // or not loaded yet — the cost overlay then omits usage entirely.
   const [toolCalls30d, setToolCalls30d] = useState<null | Record<string, number>>(null)
 
   const setProbe = (serverName: string, value: Probe) => {
@@ -62,7 +53,6 @@ export function useMcpProbes({
     try {
       const result = await testMcpServer(serverName, profile ?? undefined)
 
-      // Drop the result if the profile changed mid-probe — it belongs to A.
       if (profileEpoch.current !== epoch) {
         return
       }
@@ -80,8 +70,6 @@ export function useMcpProbes({
     }
   }
 
-  // It should just know: probe enabled servers as config arrives — but through
-  // the cache, so revisiting the page doesn't respawn/reconnect the fleet.
   useEffect(() => {
     for (const [serverName, server] of Object.entries(servers)) {
       if (!serverEnabled(server) || probesRef.current[serverName] !== undefined) {
@@ -96,14 +84,9 @@ export function useMcpProbes({
         void runProbe(serverName)
       }
     }
-    // Re-run only when the server set changes; runProbe is recreated every
-    // render and adding it would re-probe the fleet on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servers])
 
-  // Cosmetic 30-day usage counts for the cost overlay — cached module-wide per
-  // scope profile, epoch-guarded like the probes so a slow profile-A fetch
-  // can't paint into profile B.
   useEffect(() => {
     const epoch = profileEpoch.current
 
@@ -117,7 +100,6 @@ export function useMcpProbes({
   const costFor = (serverName: string, server: McpServerEntry): ServerCost =>
     serverCost(server, probes[serverName], serverName, toolCalls30d)
 
-  // No entry at all without a successful probe: a zero would read as "this server has no tools".
   const toolCounts = useMemo(() => {
     const counts: Record<string, { on: number; total: number }> = {}
 
@@ -138,7 +120,6 @@ export function useMcpProbes({
     return counts
   }, [probes, servers])
 
-  // The cost overlay's analytics, summed per server, because a card says "unused" and not which tool went unused.
   const usageByServer = useMemo(() => {
     const uses: Record<string, number> = {}
 
@@ -154,9 +135,6 @@ export function useMcpProbes({
   }, [probes, servers, toolCalls30d])
 
   const retainProbes = (entries: McpServers, prevServers: McpServers) => {
-    // Keep only probes for servers that survived AND kept the same config;
-    // removed OR edited entries drop their probe so the mount effect re-probes
-    // the new shape (the cache also misses on the changed fingerprint).
     setProbes(current =>
       Object.fromEntries(
         Object.entries(current).filter(

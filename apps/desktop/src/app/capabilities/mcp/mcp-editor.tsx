@@ -13,7 +13,6 @@ import type { McpServersController } from './use-mcp-servers'
 
 export interface McpJsonEditorProps {
   controller: McpServersController
-  /** Highlight THIS server's block instead of the one under the cursor. */
   highlightServer?: null | string
 }
 
@@ -54,11 +53,9 @@ export function McpJsonEditor({ controller, highlightServer }: McpJsonEditorProp
 }
 
 export interface McpLogPaneProps {
-  /** `null` tails every server. */
   server: null | string
 }
 
-/** The log pane with its stdio/agent switch, pinned under an editor. */
 export function McpLogPane({ server }: McpLogPaneProps) {
   const { t } = useI18n()
   const m = t.settings.mcp
@@ -89,7 +86,6 @@ export function McpLogPane({ server }: McpLogPaneProps) {
   )
 }
 
-/** The editor with the logs hard-pinned below it: the MCP tab's right column. */
 export function McpEditorPane({ controller }: { controller: McpServersController }) {
   const saved = controller.selected !== null && controller.servers[controller.selected] !== undefined
 

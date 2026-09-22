@@ -20,11 +20,9 @@ import type { ConnectorCardModel } from './types'
 export interface LocalConnectorDialogProps {
   card: ConnectorCardModel
   controller: McpServersController
-  /** The catalog entry's credential fields, while its install still needs them. */
   installFields?: readonly InstallField[]
   installing?: boolean
   onClose: () => void
-  /** The managed way's own verb: this is the upgrade path off a server on this device. */
   onConnect: () => void
   onInstall: (env: Record<string, string>) => void
   onReconnect: () => void

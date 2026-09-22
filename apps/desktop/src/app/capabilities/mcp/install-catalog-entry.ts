@@ -3,10 +3,8 @@ import { translateNow } from '@/i18n'
 
 const INSTALL_POLL_MS = 1500
 
-/** Generous, because a large clone is legitimately slow; past it the caller stops waiting. */
 const INSTALL_DEADLINE_MS = 10 * 60_000
 
-/** The call waits out a background install, so a second press cannot start a second one over it. */
 export async function installBundledEntry(
   entry: McpCatalogEntry,
   env: Record<string, string>,

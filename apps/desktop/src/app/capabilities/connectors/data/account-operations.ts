@@ -141,8 +141,8 @@ export async function syncAccountOperation(opId: string): Promise<void> {
   try {
     const status = await accountOperationStatus(operation.scope, opId)
     applySnapshot(opId, status, 'reply')
+    // eslint-disable-next-line no-empty
   } catch {
-    // A settled operation leaves the live registry; the refetch it scheduled is the answer.
   }
 }
 

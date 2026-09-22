@@ -8,7 +8,6 @@ import { useI18n } from '@/i18n'
 
 import type { ConnectorWayLocal } from './types'
 
-/** One credential a catalog manifest declares, exactly as the install call takes it. */
 export type InstallField = McpCatalogEntry['required_env'][number]
 
 export function LocalServerControl({
@@ -50,7 +49,6 @@ export function LocalServerControl({
   )
 }
 
-/** The offer to put the catalog entry on this device: the credentials it needs first, then the one verb. */
 export function LocalInstall({
   installFields = [],
   installing = false,

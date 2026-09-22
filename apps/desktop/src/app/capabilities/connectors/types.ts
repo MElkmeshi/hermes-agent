@@ -19,17 +19,14 @@ export interface HostedConnectorInput {
 
 export interface LocalServerInput {
   canAuthenticate?: boolean
-  /** The hosted slug this server's catalog manifest declares. The only key that pairs the two ways. */
   connectorSlug?: string
   description?: string
   enabled: boolean
   inCatalog?: boolean
   name: string
-  /** Set when a plugin owns this server: it is outside mcp.json and nothing here may write it. */
   plugin?: string
   status: LocalServerStatus
   target: string
-  /** The name to show when the runtime key is not it: a plugin server is `<plugin namespace>__<name>`. */
   title?: string
   toolsOn?: number
   toolsTotal?: number
@@ -106,7 +103,6 @@ export interface ConnectorWayHosted {
 
 export interface ConnectorWayLocal {
   authType?: ConnectorAuthType
-  /** The catalog manifest's own name, which is what the install call takes. */
   entryName?: string
   fact?: ConnectorFact
   inCatalog?: boolean
@@ -131,7 +127,6 @@ export interface ConnectorCardModel {
   inCatalog: boolean
   name: string
   offBy?: ConnectorOffBy
-  /** The plugin that owns this server, when one does: no switch, no remove, no write. */
   plugin?: string
   reason?: ConnectorReason
   residency: ConnectorResidency

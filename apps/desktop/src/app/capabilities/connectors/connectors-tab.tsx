@@ -178,7 +178,6 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
 
         return
 
-      // An entry that asks for credentials cannot install from a card: the fields live in the dialog.
       case 'install':
         if (card.ways.local?.entryName && card.ways.local.needsEnv !== true) {
           void startInstall(card, {})
@@ -331,7 +330,6 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
   )
 }
 
-/** The page renders whole without the managed half: one quiet line says why, and nothing reads as a failure. */
 function HostedNotice({ hasGuest, phase }: { hasGuest: boolean; phase: HostedPhase }) {
   const { t } = useI18n()
   const copy = t.connectorsPage.page

@@ -28,7 +28,6 @@ export interface HostedConnectorDialogProps {
   card: ConnectorCardModel
   controller: McpServersController
   hosted: HostedConnectorsView
-  /** The catalog entry's credential fields, while its install still needs them. */
   installFields?: readonly InstallField[]
   installing?: boolean
   onClose: () => void

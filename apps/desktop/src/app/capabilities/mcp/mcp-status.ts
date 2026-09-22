@@ -1,4 +1,3 @@
-// Both the MCP tab and the Connectors card read this status, so they cannot disagree.
 
 import { compactNumber } from '@hermes/shared'
 
@@ -11,31 +10,20 @@ import { countEnabledTools } from '@/lib/mcp-tool-filter'
 
 import { serverEnabled } from './mcp-doc'
 
-// Shared cache for the Nous-approved catalog — feeds both description enrichment
-// and the Catalog install view; invalidated after an install.
 export const MCP_CATALOG_KEY = ['mcp-catalog'] as const
 
 export type Probe = McpTestResult | 'probing'
 
 export type ServerStatus = 'error' | 'needs-auth' | 'off' | 'ok' | 'probing' | 'unknown'
 
-/** The probe once it has answered successfully, or null — the one place the union is narrowed. */
 export const okProbe = (probe: Probe | undefined): McpTestResult | null =>
   probe && probe !== 'probing' && probe.ok ? probe : null
 
-// Per-server cost/usage overlay inputs: `tokens` is the approximate per-call
-// schema cost from the probe (null = no estimate — older backend or no probe
-// yet), `uses` is the 30-day analytics call count (null = analytics
-// unavailable, so usage is simply omitted).
 export interface ServerCost {
   tokens: null | number
   uses: null | number
 }
 
-// 30-day per-tool call counts for the MCP fleet — same shape and TTL rules as
-// the Toolsets tab's toolCallsCache, but a 30-day window keyed by the
-// Capabilities scope profile. Purely cosmetic: a failed analytics fetch caches
-// nothing and the overlay omits usage.
 export const MCP_USAGE_TTL_MS = 10 * 60_000
 const mcpUsageCache = new Map<string, { at: number; value: Record<string, number> }>()
 
@@ -56,7 +44,6 @@ export async function loadMcpUsage(
 
     return value
   } catch {
-    // Analytics unavailable — degrade to "no usage shown", never an error UI.
     return null
   }
 }
@@ -90,7 +77,6 @@ export const STATUS_DOT = {
   unknown: 'bg-foreground/20'
 } satisfies Record<ServerStatus, string>
 
-/** Warning: OAuth for a header-auth or stdio server would rewrite its config to `auth: oauth`. */
 export function canAuthenticate(server: McpServerEntry, status: ServerStatus): boolean {
   const hasHeaderAuth = server.headers instanceof Object
 
@@ -102,11 +88,6 @@ export function canAuthenticate(server: McpServerEntry, status: ServerStatus): b
   )
 }
 
-// "12 tools enabled" / "25 tools, 1 prompts, 103 resources enabled" — only
-// the capabilities the server actually has. When a `server` config is passed,
-// the tool count reflects the per-tool include/exclude filter (what's actually
-// registered), not the raw discovered count. The optional `cost` appends the
-// overlay — "…, ~4.2k tok, 3 uses/30d" — with each half omitted when unknown.
 export function capabilitySummary(
   m: Translations['settings']['mcp'],
   probe: McpTestResult,
@@ -164,7 +145,6 @@ export function statusLine(
   }
 }
 
-/** The per-server cost overlay from a probe and the 30-day analytics map. */
 export function serverCost(
   server: McpServerEntry,
   probe: Probe | undefined,

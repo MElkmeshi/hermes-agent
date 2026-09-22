@@ -331,10 +331,6 @@ export function useDesktopIntegrations({
 
       // The user finished a sign-in in their browser and the portal sent them back. Show the card
       // and wake its watcher; the link's status is not allowed to move any row.
-      //
-      // An ACCOUNT operation (the Connectors page, no chat session) is woken where it lives; the
-      // op id names which operation, and only a window that started one recognises it, so the
-      // session path still answers for everything else.
       if (action.type === 'connection-done') {
         void resumeAccountConnect(action.op, navigate).then(handled => {
           if (handled) {

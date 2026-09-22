@@ -73,7 +73,6 @@ export function handleInputRequestEvent(ctx: GatewayEventContext): boolean {
   }
 
   if (isConnectionUpdateEvent(event)) {
-    // An ACCOUNT operation has no chat: in a session's card it would attach to whichever transcript is focused.
     if (event.payload.owner.type === 'account') {
       applyAccountConnectionUpdate(event.payload)
 

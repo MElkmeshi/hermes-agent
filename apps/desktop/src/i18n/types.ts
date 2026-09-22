@@ -91,23 +91,19 @@ export interface Translations {
     authorizedToolsUnavailable: string
     required: string
   }
-  /** `connectors.*` above is the onboarding and chat vocabulary; this is the Connectors page's own. */
   connectorsPage: {
     title: string
     searchPlaceholder: (count: number) => string
     filterCategory: string
     categoryAll: string
     uncategorised: string
-    /** The residency word. One word on every platform, so nothing resolves it per host. */
     residencyLocal: string
-    /** `local` is absent on purpose: that segment is labelled with `residencyLocal`. */
     segment: {
       all: string
       available: string
       connected: string
       off: string
     }
-    /** `local` is absent on purpose: that group is headed with `residencyLocal`. */
     group: {
       connected: string
       connectedNote: string
@@ -299,7 +295,6 @@ export interface Translations {
       save: string
       saving: string
     }
-    /** Keyed by `VocabularyKey` in `app/capabilities/connectors/hint-vocabulary.ts`. */
     vocabulary: Record<
       | 'facetDestructive'
       | 'facetRead'

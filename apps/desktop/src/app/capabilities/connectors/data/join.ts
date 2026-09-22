@@ -200,7 +200,6 @@ export function joinHostedConnectors({
 }
 
 export interface LocalJoinInput {
-  /** The shipped manifests. Their `connector_slug` is the only source for the hosted app a server backs. */
   catalog: readonly McpCatalogEntry[]
   servers: McpServers
   status: Readonly<Record<string, LocalServerStatus>>
@@ -264,7 +263,6 @@ function authTypeOf(declared: string): ConnectorAuthType {
   return declared === 'oauth' ? 'oauth' : 'none'
 }
 
-/** Every ready-to-install manifest becomes an Available card, so there is one directory and one flow. */
 export function joinBundledEntries(catalog: readonly McpCatalogEntry[]): BundledEntryInput[] {
   return catalog.map(entry => ({
     authType: authTypeOf(entry.auth_type),
@@ -289,7 +287,6 @@ export interface PluginServerJoinInput {
   servers: readonly McpServerSummary[]
 }
 
-/** The servers a plugin provides. They are not in mcp.json, so the config record never carries them. */
 export function pluginServerRows({ runtime, servers }: PluginServerJoinInput): LocalServerInput[] {
   const live = new Map(runtime.map(row => [row.name, row]))
 

@@ -280,10 +280,6 @@ function fromClaudeAdd(tokens: string[]): McpImportEntry | null {
   return { config, name }
 }
 
-// `hermes mcp add NAME [--url U] [--command C] [--auth oauth|header]
-// [--env K=V …] [--preset P] [--connect-timeout N] [--args …]`
-// — the flags `hermes_cli/subcommands/mcp.py` registers, `--env` taking any
-// number of pairs and `--args` the rest of the line.
 interface HermesAddFlags {
   args: string[]
   auth: null | string
@@ -396,7 +392,6 @@ function fromHermesAdd(tokens: string[]): McpImportEntry | null {
   return hermesEntry(flags)
 }
 
-// cursor://anysphere.cursor-deeplink/mcp/install?name=X&config=<base64 JSON>
 function fromCursorDeeplink(text: string): McpImportEntry[] | null {
   const match = /^cursor:\/\/anysphere\.cursor-deeplink\/mcp\/install\?(.+)$/i.exec(text)
 

@@ -1,4 +1,3 @@
-// The identity chip for a server row; it fetches no mark, because a configured MCP URL can be a private host.
 
 import { AvatarChip } from '@/components/ui/avatar-chip'
 import { brandFor } from '@/lib/mcp-brands'

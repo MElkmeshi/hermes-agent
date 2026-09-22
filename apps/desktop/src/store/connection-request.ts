@@ -110,7 +110,6 @@ const targetState = oneOf(TARGET_STATES)
 const targetAction = oneOf(ACTIONS)
 const settleReason = oneOf(SETTLE_REASONS)
 
-/** Exported because an ACCOUNT operation (the Connectors page, no session) reads the same frames the same way. */
 export function parseConnectionTarget(entry: ConnectionOperationTarget): ConnectionTarget | null {
   const name = entry.name.trim()
 

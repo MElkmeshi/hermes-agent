@@ -1,4 +1,3 @@
-// One poller, shared by the tab and the Advanced pane.
 
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
@@ -12,9 +11,6 @@ export const LOG_POLL_MS = 2000
 
 const STDIO_MARKER_RE = /^===== \[.*\] starting MCP server '(.+)' =====$/
 
-// Keep only the stdio-log sections belonging to one server. The shared file
-// has no per-line tags — sections start at that server's session marker and
-// run until the next marker (any server's).
 export function filterStdioSections(lines: string[], server: string): string[] {
   const out: string[] = []
   let inSection = false
@@ -36,9 +32,6 @@ export function filterStdioSections(lines: string[], server: string): string[] {
 
 export type McpLogSource = 'agent' | 'stdio'
 
-/** Scope follows the caller's selected server (all servers otherwise); the
- *  source control lives in whichever pane header hosts this. Body is the app's
- *  tool-output surface: CodeCardBody typography + hover-reveal copy. */
 export function McpLogs({
   emptyLabel,
   server,
@@ -49,9 +42,6 @@ export function McpLogs({
   source: McpLogSource
 }) {
   const [lines, setLines] = useState<null | string[]>(null)
-  // A profile switch reroutes getLogs to the new backend; keying the effect on
-  // the active profile tears down the old poll (stop suppresses a late
-  // publish) so profile A's logs never flash in B.
   const activeProfile = useStore($activeGatewayProfile)
 
   useEffect(() => {

@@ -9,7 +9,6 @@ import type { ConnectorCardModel, ConnectorWayHosted, ConnectorWayLocal } from '
 
 export interface WaysSectionProps {
   card: ConnectorCardModel
-  /** False when the strip above already leads with the hosted verb, so the row does not offer it twice. */
   hostedVerb?: boolean
   installFields?: readonly InstallField[]
   installing?: boolean
@@ -21,7 +20,6 @@ export interface WaysSectionProps {
   onServerToggle?: (next: boolean) => void
 }
 
-/** The two forms of one app, one under the other. An app with one form says it all in the strip above. */
 export function WaysSection({ card, ...rest }: WaysSectionProps) {
   const { t } = useI18n()
   const copy = t.connectorsPage.dialog

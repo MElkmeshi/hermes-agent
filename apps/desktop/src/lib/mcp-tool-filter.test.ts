@@ -87,12 +87,10 @@ describe('toggleToolInServer', () => {
 
 describe('setDisabledTools', () => {
   it('keeps a stored rule for a tool the current probe did not return', () => {
-    // A name the probe never returned keeps whatever rule it had.
     expect(setDisabledTools({ tools: { exclude: ['dangerous_tool'] } }, ['b'], ['a', 'b']).tools).toEqual({
       exclude: ['b', 'dangerous_tool']
     })
 
-    // Nothing is off among the tools on screen, and the stored one still is.
     expect(setDisabledTools({ tools: { exclude: ['dangerous_tool'] } }, [], ['a', 'b']).tools).toEqual({
       exclude: ['dangerous_tool']
     })
@@ -101,7 +99,6 @@ describe('setDisabledTools', () => {
       include: ['a', 'rare_tool']
     })
 
-    // And a list with nothing left in it still goes away.
     expect(setDisabledTools({ tools: { exclude: ['b'] } }, [], ['a', 'b']).tools).toBeUndefined()
   })
 })

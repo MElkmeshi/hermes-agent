@@ -65,13 +65,11 @@ export function toggleToolInServer(server: ServerConfig, name: string): ServerCo
   return next
 }
 
-// The whole off-list in one write, keeping the config's mode: include when that key is present, else exclude.
 export function setDisabledTools(server: ServerConfig, disabled: string[], discovered: string[]) {
   const { exclude, include } = readToolsFilter(server)
   const off = new Set(disabled)
   const seen = new Set(discovered)
   const tools = { ...toolsObject(server) }
-  // A probe can come back short, so a stored name it did not return keeps its rule instead of turning back on.
   const kept = (stored: string[] | undefined) => (stored ?? []).filter(name => !seen.has(name))
 
   if (include !== undefined) {
