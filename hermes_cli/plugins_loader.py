@@ -399,6 +399,7 @@ class PluginLoaderMixin:
                     logger.warning("Agent Plugin '%s' MCP server collision: %s", lookup_key, internal_name)
                     continue
                 self._portable_mcp_servers[internal_name] = dict(config)
+                self._portable_mcp_server_plugins[internal_name] = lookup_key
             loaded.enabled = True
         except Exception as exc:
             loaded.error = str(exc)

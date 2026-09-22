@@ -1160,6 +1160,7 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
         self._system_prompt_sections: Dict[str, PluginSystemPromptSection] = {}
         self._plugin_skills: Dict[str, Dict[str, Any]] = {}
         self._portable_mcp_servers: Dict[str, Dict[str, Any]] = {}
+        self._portable_mcp_server_plugins: Dict[str, str] = {}
         self._aux_tasks: Dict[str, Dict[str, Any]] = {}
         self._approval_transports: Dict[str, Any] = {}
         self._slack_action_handlers: List[tuple] = []
@@ -1498,6 +1499,10 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
     def get_portable_mcp_servers(self) -> Dict[str, Dict[str, Any]]:
         """Return a defensive copy of enabled portable MCP server configs."""
         return {name: dict(config) for name, config in self._portable_mcp_servers.items()}
+
+    def get_portable_mcp_server_plugins(self) -> Dict[str, str]:
+        """Return the owning plugin id for each enabled portable MCP server."""
+        return dict(self._portable_mcp_server_plugins)
 
     def remove_plugin_skill(self, qualified_name: str) -> None:
         """Remove a stale registry entry (silently ignores missing keys)."""

@@ -3719,7 +3719,10 @@ export interface McpServerSummary {
   oauth_tokens_present?: boolean | null
   enabled: boolean
   tools?: unknown | null
+  source: McpServerSource
+  plugin?: string | null
 }
+export type McpServerSource = 'config' | 'plugin'
 export interface McpServersStatusResult {
   servers: McpServerRuntimeRow[]
   checked_at: number
@@ -3732,6 +3735,8 @@ export interface McpServerRuntimeRow {
   connected: boolean
   disabled: boolean
   status: McpRuntimeStatus
+  source: McpServerSource
+  plugin?: string | null
 }
 export type McpRuntimeStatus = 'connected' | 'disabled' | 'connecting' | 'failed' | 'lazy' | 'configured'
 /** ``preset`` (catalog id) and/or ``config`` (url/command/args/env/headers/auth/tools); a ``bearer_token`` is written to the profile's .env, only the header template persists. */
