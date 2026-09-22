@@ -1,4 +1,8 @@
 import { compactNumber } from '@hermes/shared'
+import { useLocation, useNavigate } from 'react-router'
+
+import { Button } from '@/components/ui/button'
+import { useI18n } from '@/i18n'
 
 import type { McpServersController } from '../mcp/use-mcp-servers'
 
@@ -18,10 +22,12 @@ export interface LocalConnectorDialogProps {
 
 export function LocalConnectorDialog({ card, controller, onClose, onRemoveServer }: LocalConnectorDialogProps) {
   const name = localServerName(card)
+  const openPlugins = useOpenPluginsTab()
+  const plugin = card.plugin
 
   return (
     <ConnectorDialog
-      advanced={<LocalAdvanced controller={controller} name={name} onRemove={onRemoveServer} />}
+      advanced={plugin === undefined ? <LocalAdvanced controller={controller} name={name} onRemove={onRemoveServer} /> : undefined}
       card={card}
       cost={localCost(controller, name)}
       menu={<ConnectorDialogMenu onRefreshTools={() => void controller.runProbe(name)} />}
@@ -33,9 +39,40 @@ export function LocalConnectorDialog({ card, controller, onClose, onRemoveServer
       }}
       onServerToggle={next => void controller.setServerEnabled(name, next)}
       open
-      tools={<LocalToolsPanel card={card} controller={controller} onRemove={onRemoveServer} />}
+      tools={
+        plugin === undefined ? (
+          <LocalToolsPanel card={card} controller={controller} onRemove={onRemoveServer} />
+        ) : (
+          <PluginNote onOpenPlugins={openPlugins} plugin={plugin} />
+        )
+      }
     />
   )
+}
+
+function PluginNote({ onOpenPlugins, plugin }: { onOpenPlugins: () => void; plugin: string }) {
+  const { t } = useI18n()
+  const copy = t.connectorsPage.dialog
+
+  return (
+    <div className="grid min-h-0 flex-1 content-start justify-items-center gap-2 px-3.5 py-10 text-center">
+      <p className="text-xs text-(--ui-text-tertiary)">{copy.providedByPlugin(plugin)}</p>
+      <Button onClick={onOpenPlugins} size="inline" variant="textStrong">
+        {copy.openPlugins}
+      </Button>
+    </div>
+  )
+}
+
+function useOpenPluginsTab(): () => void {
+  const navigate = useNavigate()
+  const { hash, pathname, search } = useLocation()
+
+  return () => {
+    const params = new URLSearchParams(search)
+    params.set('tab', 'plugins')
+    navigate({ hash, pathname, search: `?${params.toString()}` })
+  }
 }
 
 function localCost(controller: McpServersController, name: string) {

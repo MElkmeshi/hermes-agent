@@ -37,6 +37,8 @@ import { type McpProbes, useMcpProbes } from './use-mcp-probes'
 type PublishedProbes = Pick<McpProbes, 'costFor' | 'probes' | 'runProbe' | 'toolCounts' | 'usageByServer'>
 
 export interface McpServersController extends McpDraft, PublishedProbes {
+  /** One new `mcp_servers.<name>` block, persisted and mirrored into the document. */
+  addServerEntry: (name: string, entry: McpServerEntry) => Promise<boolean>
   /** The server whose OAuth flow is blocking the browser, if any. */
   authing: null | string
   authenticate: (name: string) => Promise<void>
@@ -353,6 +355,33 @@ export function useMcpServers({ gateway, profile }: UseMcpServersOptions): McpSe
     }
   }
 
+  const addServerEntry = async (serverName: string, entry: McpServerEntry): Promise<boolean> => {
+    if (profilePending || serverName in servers) {
+      return false
+    }
+
+    const next = { ...servers, [serverName]: entry }
+
+    setSaving(true)
+
+    try {
+      if (!(await persist(next))) {
+        return false
+      }
+
+      mirror(next, doc => ({ ...doc, [serverName]: entry }))
+      void fleet.runProbe(serverName)
+
+      return true
+    } catch (err) {
+      notifyError(err, m.saveFailed)
+
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const setServerEnabled = async (serverName: string, enabled: boolean) => {
     if ((await writeEntry(serverName, entry => withEnabled(entry, enabled))) && enabled) {
       void fleet.runProbe(serverName)
@@ -441,6 +470,7 @@ export function useMcpServers({ gateway, profile }: UseMcpServersOptions): McpSe
 
   return {
     ...draft,
+    addServerEntry,
     authenticate,
     authing,
     availableCatalog,

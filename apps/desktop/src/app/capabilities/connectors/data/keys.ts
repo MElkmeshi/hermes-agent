@@ -38,6 +38,11 @@ export const connectorsPolicyQueryKey = (scope: ProfileScope) => scoped(scope, '
 
 export const connectorToolsQueryKey = (scope: ProfileScope, slug: string) => scoped(scope, 'tools', slug)
 
+/** The plugin-provided MCP servers, which live outside mcp.json and so outside the config record. */
+export const pluginServersQueryKey = (scope: ProfileScope) => scoped(scope, 'plugin-servers')
+
+export const PLUGIN_SERVERS_STALE_TIME = 5 * MINUTE
+
 export function invalidateConnectors(scope: ProfileScope, ...reads: [ConnectorRead, ...ConnectorRead[]]): void {
   for (const read of reads) {
     void queryClient.invalidateQueries({ queryKey: scoped(scope, read) })

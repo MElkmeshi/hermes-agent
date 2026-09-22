@@ -8,19 +8,7 @@ import { cn } from '@/lib/utils'
 import { CategoryPicker } from './category-picker'
 import type { CountedValue } from './derive-tools'
 import { tagCopy, vocabularyTag } from './hint-vocabulary'
-import type { QuickAction, QuickActionId, ToolsFilter, ToolsFreshness } from './types'
-
-const HOUR_MS = 3_600_000
-
-export function freshnessLabel(copy: Translations['connectorsPage']['tools'], freshness: ToolsFreshness): string {
-  const hours = Math.floor(Math.max(0, Date.now() - freshness.fetchedAt) / HOUR_MS)
-
-  if (hours < 1) {
-    return copy.freshnessJustNow
-  }
-
-  return hours < 24 ? copy.freshnessHours(hours) : copy.freshnessDays(Math.floor(hours / 24))
-}
+import type { QuickAction, QuickActionId, ToolsFilter } from './types'
 
 function quickActionLabel(copy: Translations['connectorsPage']['tools'], id: QuickActionId): string {
   return {
@@ -35,14 +23,11 @@ export interface ToolsFilterBarProps {
   currentAction: null | QuickAction
   facets: CountedValue[]
   filter: ToolsFilter
-  freshness?: ToolsFreshness
   hints: CountedValue[]
   onApplyQuickAction: (id: QuickActionId) => void
   onFilterChange: (next: ToolsFilter) => void
-  onRefresh: () => void
   onShowSummary: () => void
   quickActions: QuickAction[]
-  refreshing?: boolean
   tiny: boolean
   total: number
 }
@@ -52,14 +37,11 @@ export function ToolsFilterBar({
   currentAction,
   facets,
   filter,
-  freshness,
   hints,
   onApplyQuickAction,
   onFilterChange,
-  onRefresh,
   onShowSummary,
   quickActions,
-  refreshing = false,
   tiny,
   total
 }: ToolsFilterBarProps) {
@@ -86,16 +68,6 @@ export function ToolsFilterBar({
             value={filter.query}
           />
         )}
-
-        {freshness ? (
-          <span className="ml-auto shrink-0 text-[0.65rem] text-(--ui-text-quaternary)">
-            {freshnessLabel(copy, freshness)}
-          </span>
-        ) : null}
-
-        <Button className="shrink-0" disabled={refreshing} onClick={onRefresh} size="xs" variant="text">
-          {refreshing ? copy.refreshing : copy.refresh}
-        </Button>
       </div>
 
       {tiny || chips === 0 ? null : (

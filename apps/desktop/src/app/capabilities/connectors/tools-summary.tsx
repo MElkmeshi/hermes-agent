@@ -6,8 +6,7 @@ import { useI18n } from '@/i18n'
 import type { Translations } from '@/i18n/types'
 
 import { tagCopy, vocabularyTag } from './hint-vocabulary'
-import { freshnessLabel } from './tools-filter-bar'
-import type { FacetSummaryRow, ToolsFreshness } from './types'
+import type { FacetSummaryRow } from './types'
 
 const OPENED = new Set<string>()
 
@@ -47,26 +46,20 @@ function onLabel(copy: Translations['connectorsPage']['tools'], row: FacetSummar
 
 export interface ToolsSummaryProps {
   connectorName: string
-  freshness?: ToolsFreshness
-  onRefresh: () => void
   onShowAll: () => void
   onToggleFacet: (facet: string, on: boolean) => void
   preview: boolean
   readOnly: boolean
-  refreshing?: boolean
   rows: FacetSummaryRow[]
   total: number
 }
 
 export function ToolsSummary({
   connectorName,
-  freshness,
-  onRefresh,
   onShowAll,
   onToggleFacet,
   preview,
   readOnly,
-  refreshing = false,
   rows,
   total
 }: ToolsSummaryProps) {
@@ -125,22 +118,6 @@ export function ToolsSummary({
       <div className="flex items-center gap-3">
         <Button onClick={onShowAll} size="inline" variant="textStrong">
           {copy.showAllTools(total)}
-        </Button>
-
-        {freshness ? (
-          <span className="ml-auto shrink-0 text-[0.65rem] text-(--ui-text-quaternary)">
-            {freshnessLabel(copy, freshness)}
-          </span>
-        ) : null}
-
-        <Button
-          className={freshness ? 'shrink-0' : 'ml-auto shrink-0'}
-          disabled={refreshing}
-          onClick={onRefresh}
-          size="xs"
-          variant="text"
-        >
-          {refreshing ? copy.refreshing : copy.refresh}
         </Button>
       </div>
     </div>

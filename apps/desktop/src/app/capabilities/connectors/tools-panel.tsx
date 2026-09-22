@@ -73,9 +73,7 @@ export function HostedToolsPanel({
       conflict={saver.theirs ? conflictDifference(saver.theirs, editor.local) : undefined}
       connectorName={card.name}
       editor={editor}
-      freshness={tools.freshness ?? undefined}
       listKey={card.slug}
-      onRefresh={tools.refresh}
       onReload={saver.reload}
       onRemove={onDisconnect}
       onRetry={tools.retry}
@@ -83,7 +81,6 @@ export function HostedToolsPanel({
       onSignIn={onSignIn}
       preview={card.ways.hosted?.connected !== true}
       readOnly={readOnly}
-      refreshing={tools.refreshing}
       rulesSignedOut={rulesSignedOut}
       signedOut={tools.signedOut}
       tools={rows}
@@ -146,10 +143,10 @@ export function LocalToolsPanel({ card, controller, onRemove }: LocalToolsPanelP
       connectorName={card.name}
       editor={editor}
       listKey={name}
-      onRefresh={() => void controller.runProbe(name)}
       onReload={() => void controller.runProbe(name)}
       onRemove={onRemove}
       onRetry={() => void controller.runProbe(name)}
+      preview={card.state !== 'connected'}
       tools={rows}
     />
   )

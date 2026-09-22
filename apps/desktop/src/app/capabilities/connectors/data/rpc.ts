@@ -143,3 +143,11 @@ export const wakeAccountOperation = (scope: ProfileScope, opId: string) =>
 
 export const respondToAccountOperation = (scope: ProfileScope, opId: string, result: ConnectionAnswer) =>
   call(scope, 'connection.respond', { op_id: opId, owner: ACCOUNT_OWNER, result }, 'foreground')
+
+// The token lands in the profile's .env; config.yaml keeps only the `${ENV}` reference.
+export const setMcpBearerToken = (scope: ProfileScope, name: string, value: string) =>
+  call(scope, 'mcp.servers.set_api_key', { name, value }, 'foreground')
+
+export const listMcpServers = (scope: ProfileScope) => call(scope, 'mcp.servers.list', {})
+
+export const mcpServerStatus = (scope: ProfileScope) => call(scope, 'mcp.servers.status', {})

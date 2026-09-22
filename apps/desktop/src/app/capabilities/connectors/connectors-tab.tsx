@@ -19,7 +19,7 @@ import { joinLocalServers, pickAccount } from './data/join'
 import { useConnectConnector, useConnectorSwitch, useDisconnectAccount } from './data/mutations'
 import { seedLocalServers, startConnectorPersistence, storeLocalServers } from './data/persist'
 import { prefetchConnectorTools, usePrefetchConnectedTools } from './data/prefetch'
-import { useHostedConnectors } from './data/queries'
+import { useHostedConnectors, usePluginServers } from './data/queries'
 import { cardKey, deriveCards, EMPTY_CONNECTORS_FILTER, forgetAbandoned, hostedCardKey, localServerName } from './derive'
 import { HostedConnectorDialog } from './hosted-dialog'
 import { LocalConnectorDialog } from './local-dialog'
@@ -66,7 +66,12 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
   )
 
   const lastKnownServers = useMemo(() => seedLocalServers(profile), [profile])
-  const servers = mcp.configLoading ? lastKnownServers : local
+  const pluginServers = usePluginServers(profile)
+
+  const servers = useMemo(
+    () => [...(mcp.configLoading ? lastKnownServers : local), ...pluginServers],
+    [lastKnownServers, local, mcp.configLoading, pluginServers]
+  )
 
   useEffect(() => {
     if (!mcp.configLoading) {
@@ -173,11 +178,6 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
     setOpenKey(cardKey(card))
   }
 
-  const startAdd = () => {
-    mcp.addServer()
-    setAddOpen(true)
-  }
-
   const busySlug = switcher.pending ?? connector.pending
 
   const hostedBlank = hosted.phase === 'signedOut' || hosted.phase === 'unavailable'
@@ -186,7 +186,7 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-2">
       <ConnectorsDirectory
         addYourOwn={
-          <Button disabled={mcp.profilePending} onClick={startAdd} size="xs" variant="outline">
+          <Button disabled={mcp.profilePending} onClick={() => setAddOpen(true)} size="xs" variant="outline">
             {copy.add.action}
           </Button>
         }
@@ -219,7 +219,11 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
           }
         }}
         onRetryHosted={hosted.refetch}
-        onServerToggle={(card, next) => void mcp.setServerEnabled(localServerName(card), next)}
+        onServerToggle={(card, next) => {
+          if (card.plugin === undefined) {
+            void mcp.setServerEnabled(localServerName(card), next)
+          }
+        }}
         onVerb={runVerb}
         selectedKey={openKey}
       />
@@ -236,7 +240,6 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
       {openCard?.residency === 'hosted' ? (
         <HostedConnectorDialog
           card={openCard}
-          controller={mcp}
           hosted={hosted}
           onClose={() => setOpenKey(null)}
           onDisconnect={() => setDisconnecting(openCard)}
@@ -249,7 +252,7 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
         />
       ) : null}
 
-      <AddServerDialog controller={mcp} onOpenChange={setAddOpen} open={addOpen} />
+      <AddServerDialog controller={mcp} onOpenChange={setAddOpen} open={addOpen} profile={profile} />
 
       <RemoveServerConfirm
         card={removeServer}

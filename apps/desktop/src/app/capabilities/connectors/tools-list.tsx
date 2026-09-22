@@ -25,14 +25,7 @@ import {
   ToolsWash
 } from './tools-status'
 import { ToolsSummary, useShowAllTools } from './tools-summary'
-import type {
-  ConflictDifference,
-  QuickAction,
-  ToolRowModel,
-  ToolsEditorCounts,
-  ToolsFilter,
-  ToolsFreshness
-} from './types'
+import type { ConflictDifference, QuickAction, ToolRowModel, ToolsEditorCounts, ToolsFilter } from './types'
 import type { ToolsEditor } from './use-tools-editor'
 
 const OVERSCAN = 4
@@ -45,9 +38,7 @@ export interface ToolsListProps {
   conflict?: ConflictDifference
   connectorName: string
   editor: ToolsEditor
-  freshness?: ToolsFreshness
   listKey: string
-  onRefresh: () => void
   onReload: () => void
   onRemove: () => void
   onRetry: () => void
@@ -55,7 +46,6 @@ export interface ToolsListProps {
   onSignIn?: () => void
   preview?: boolean
   readOnly?: boolean
-  refreshing?: boolean
   rulesSignedOut?: boolean
   signedOut?: boolean
   tools: ToolRowModel[]
@@ -102,7 +92,6 @@ function ToolsListBody(props: ToolsListProps) {
     onSignIn,
     preview = false,
     readOnly = false,
-    refreshing = false,
     rulesSignedOut = false,
     signedOut = false,
     tools
@@ -135,27 +124,21 @@ function ToolsListBody(props: ToolsListProps) {
           currentAction={editor.currentAction}
           facets={chrome.facets}
           filter={filter}
-          freshness={props.freshness}
           hints={chrome.hints}
           onApplyQuickAction={editor.applyQuickAction}
           onFilterChange={setFilter}
-          onRefresh={props.onRefresh}
           onShowSummary={all.hide}
           quickActions={frozen ? EMPTY_QUICK_ACTIONS : chrome.quickActions}
-          refreshing={refreshing}
           tiny={chrome.tiny}
           total={tools.length}
         />
       ) : (
         <ToolsSummary
           connectorName={connectorName}
-          freshness={props.freshness}
-          onRefresh={props.onRefresh}
           onShowAll={all.show}
           onToggleFacet={editor.toggleFacet}
           preview={preview}
           readOnly={readOnly || appOff}
-          refreshing={refreshing}
           rows={summary}
           total={tools.length}
         />

@@ -280,6 +280,139 @@ function fromClaudeAdd(tokens: string[]): McpImportEntry | null {
   return { config, name }
 }
 
+// `hermes mcp add NAME [--url U] [--command C] [--auth oauth|header]
+// [--env K=V …] [--header K: V] [--preset P] [--connect-timeout N] [--args …]`
+// — the flags `hermes_cli/subcommands/mcp.py` registers, `--env` taking any
+// number of pairs and `--args` the rest of the line.
+interface HermesAddFlags {
+  args: string[]
+  auth: null | string
+  command: null | string
+  env: Record<string, string>
+  headers: Record<string, string>
+  name: null | string
+  url: null | string
+}
+
+const ARGS_END = -1
+
+const emptyHermesFlags = (): HermesAddFlags => ({
+  args: [],
+  auth: null,
+  command: null,
+  env: {},
+  headers: {},
+  name: null,
+  url: null
+})
+
+function readEnvPairs(env: Record<string, string>, tokens: string[], index: number): number {
+  let i = index
+
+  while (i + 1 < tokens.length && !tokens[i + 1].startsWith('-')) {
+    const pair = tokens[++i]
+    const eq = pair.indexOf('=')
+
+    if (eq > 0) {
+      env[pair.slice(0, eq)] = pair.slice(eq + 1)
+    }
+  }
+
+  return i
+}
+
+function readHermesToken(flags: HermesAddFlags, tokens: string[], index: number): number {
+  const token = tokens[index]
+
+  if (token === '--args') {
+    const rest = tokens.slice(index + 1)
+    flags.args = rest[0] === '--' ? rest.slice(1) : rest
+
+    return ARGS_END
+  }
+
+  if (token === '--url' || token === '--command' || token === '--auth') {
+    const value = tokens[index + 1] ?? null
+
+    if (token === '--url') {
+      flags.url = value
+    } else if (token === '--command') {
+      flags.command = value
+    } else {
+      flags.auth = value
+    }
+
+    return index + 1
+  }
+
+  if (token === '--env') {
+    return readEnvPairs(flags.env, tokens, index)
+  }
+
+  if (token === '--header') {
+    const pair = tokens[index + 1] ?? ''
+    const colon = pair.indexOf(':')
+
+    if (colon > 0) {
+      flags.headers[pair.slice(0, colon).trim()] = pair.slice(colon + 1).trim()
+    }
+
+    return index + 1
+  }
+
+  if (token === '--connect-timeout' || token === '--preset') {
+    return index + 1
+  }
+
+  if (!token.startsWith('-') && !flags.name) {
+    flags.name = token
+  }
+
+  return index
+}
+
+function hermesEntry(flags: HermesAddFlags): McpImportEntry | null {
+  const { args, auth, command, env, headers, name, url } = flags
+
+  if (!name || (!url && !command)) {
+    return null
+  }
+
+  const config: McpImportEntry['config'] = url ? { url } : { command }
+
+  if (!url && args.length > 0) {
+    config.args = args
+  }
+
+  if (auth) {
+    config.auth = auth
+  }
+
+  if (Object.keys(env).length > 0) {
+    config.env = env
+  }
+
+  if (Object.keys(headers).length > 0) {
+    config.headers = headers
+  }
+
+  return { config, name }
+}
+
+function fromHermesAdd(tokens: string[]): McpImportEntry | null {
+  const flags = emptyHermesFlags()
+
+  for (let i = 3; i < tokens.length; i++) {
+    i = readHermesToken(flags, tokens, i)
+
+    if (i === ARGS_END) {
+      break
+    }
+  }
+
+  return hermesEntry(flags)
+}
+
 // cursor://anysphere.cursor-deeplink/mcp/install?name=X&config=<base64 JSON>
 function fromCursorDeeplink(text: string): McpImportEntry[] | null {
   const match = /^cursor:\/\/anysphere\.cursor-deeplink\/mcp\/install\?(.+)$/i.exec(text)
@@ -378,6 +511,12 @@ function parseLine(line: string): McpImportEntry[] | null {
 
   if (tokens[0] === 'claude' && tokens[1] === 'mcp' && tokens[2] === 'add') {
     const entry = fromClaudeAdd(tokens)
+
+    return entry ? [entry] : null
+  }
+
+  if (tokens[0] === 'hermes' && tokens[1] === 'mcp' && tokens[2] === 'add') {
+    const entry = fromHermesAdd(tokens)
 
     return entry ? [entry] : null
   }

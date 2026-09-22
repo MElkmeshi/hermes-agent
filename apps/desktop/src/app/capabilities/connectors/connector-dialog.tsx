@@ -4,18 +4,17 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { ConnectorLogo } from '@/components/ui/connector-logo'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
-import type { Translations } from '@/i18n/types'
 import { connectorIconUrl } from '@/lib/connector-tools'
+import { X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import { CatalogMark } from './catalog-mark'
-import { localResidencyWord } from './residency'
-import type { ConnectorCardModel, ConnectorOffBy, ConnectorState, ConnectorVerb, ConnectorWayHosted } from './types'
-import { LocalServerControl } from './ways-section'
+import { connectorKindWord } from './connector-kind'
+import { LocalServerControl } from './local-server-control'
+import type { ConnectorCardModel, ConnectorState, ConnectorVerb, ConnectorWayHosted } from './types'
 
 type BadgeVariant = 'default' | 'destructive' | 'muted' | 'success' | 'warn'
 
@@ -28,8 +27,6 @@ const STATE_BADGE = {
   off: 'muted',
   unknown: 'muted'
 } satisfies Record<ConnectorState, BadgeVariant>
-
-const COLUMN_MAX_HEIGHT = 'max-h-[calc(85vh-4rem)]'
 
 const RULEABLE = {
   available: false,
@@ -45,14 +42,11 @@ const ruleable = (way: ConnectorWayHosted | null): boolean => way !== null && wa
 
 export interface ConnectorDialogProps {
   advanced?: ReactNode
-  accountLabel?: string
   card: ConnectorCardModel
-  connectedOn?: string
   connectElement?: ReactNode
   cost?: { tokensPerCall?: string; usesPerMonth?: string }
   menu?: ReactNode
   onAuthenticate?: () => void
-  onDisconnect?: () => void
   onOpenAdmin?: () => void
   onOpenChange: (open: boolean) => void
   onServerToggle?: (next: boolean) => void
@@ -76,26 +70,21 @@ export function ConnectorDialog({ card, onOpenChange, open, tools, ...rest }: Co
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
         bodyClassName="gap-0 overflow-hidden p-0"
-        className="max-h-[min(55rem,85vh)] min-w-[min(62.5rem,92vw)]"
-        fitContent
+        className="h-[min(38rem,85vh)] max-w-2xl"
         onOpenAutoFocus={event => {
           event.preventDefault()
           titleRef.current?.focus()
         }}
+        showCloseButton={false}
       >
-        <Header card={card} menu={rest.menu} titleRef={titleRef} />
+        <Header card={card} titleRef={titleRef} {...rest} />
 
-        <div className="grid min-h-0 grid-cols-[18.75rem_minmax(0,1fr)]">
-          <div
-            className={cn(
-              'flex min-h-0 flex-col gap-3 self-start overflow-y-auto border-r border-(--ui-stroke-tertiary) p-4',
-              COLUMN_MAX_HEIGHT
-            )}
-          >
-            {local ? <LocalColumn card={card} {...rest} /> : <HostedColumn card={card} {...rest} />}
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {local ? <LocalLead card={card} {...rest} /> : <HostedLead card={card} {...rest} />}
 
-          <div className={cn('flex min-h-0 flex-col', COLUMN_MAX_HEIGHT)}>{tools}</div>
+          {tools}
+
+          {local ? <LocalFoot card={card} {...rest} /> : <HostedFoot card={card} {...rest} />}
         </div>
 
         <span className="sr-only">{t.connectorsPage.title}</span>
@@ -104,18 +93,21 @@ export function ConnectorDialog({ card, onOpenChange, open, tools, ...rest }: Co
   )
 }
 
+type PartProps = Omit<ConnectorDialogProps, 'onOpenChange' | 'open' | 'tools'>
+
 function Header({
   card,
   menu,
-  titleRef
-}: {
-  card: ConnectorCardModel
-  menu?: ReactNode
-  titleRef: RefObject<HTMLHeadingElement | null>
-}) {
+  onToggleForMe,
+  rulesReadOnly = false,
+  titleRef,
+  togglePending = false
+}: PartProps & { titleRef: RefObject<HTMLHeadingElement | null> }) {
   const { t } = useI18n()
   const copy = t.connectorsPage.card
   const local = card.residency === 'local'
+  const hosted = card.ways.hosted
+  const appSwitch = ruleable(hosted) && onToggleForMe !== undefined
 
   return (
     <header className="flex shrink-0 items-center gap-2.5 border-b border-(--ui-stroke-tertiary) px-5 py-3">
@@ -130,11 +122,9 @@ function Header({
             {card.name}
           </DialogTitle>
 
-          <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">
-            {local ? localResidencyWord(t.connectorsPage) : copy.hosted}
-          </span>
+          <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">{connectorKindWord(card, copy)}</span>
 
-          {card.inCatalog ? <CatalogMark /> : null}
+          {card.inCatalog && !local ? <CatalogMark /> : null}
 
           <Badge className="shrink-0" size="xs" variant={STATE_BADGE[card.state]}>
             {copy.state[card.stateWord]}
@@ -146,17 +136,27 @@ function Header({
         </DialogDescription>
       </div>
 
-      {menu ? <div className="mr-7 shrink-0">{menu}</div> : null}
+      <div className="flex shrink-0 items-center gap-2">
+        {appSwitch && hosted && onToggleForMe ? (
+          <Switch
+            aria-label={t.connectorsPage.dialog.appSwitch(card.name)}
+            checked={hosted.state !== 'off'}
+            disabled={card.offBy === 'org' || togglePending || rulesReadOnly}
+            onCheckedChange={onToggleForMe}
+            size="xs"
+          />
+        ) : null}
+
+        {menu}
+
+        <DialogClose asChild>
+          <Button aria-label={t.common.close} size="icon-xs" variant="ghost">
+            <X className="size-3" />
+          </Button>
+        </DialogClose>
+      </div>
     </header>
   )
-}
-
-type ColumnProps = Omit<ConnectorDialogProps, 'onOpenChange' | 'open' | 'tools'>
-
-type DialogCopy = Translations['connectorsPage']['dialog']
-
-function switchHint(copy: DialogCopy, offBy: ConnectorOffBy | undefined): string {
-  return offBy === 'org' ? copy.appSwitchOrg : copy.appSwitchHint
 }
 
 interface LeadVerb {
@@ -184,34 +184,23 @@ function leadVerb({
   return { run: onVerb, verb }
 }
 
-function HostedColumn({
-  accountLabel,
-  card,
-  connectedOn,
-  connectElement,
-  onDisconnect,
-  onOpenAdmin,
-  onToggleForMe,
-  onVerb,
-  orgDisabledCount = 0,
-  rulesReadOnly = false,
-  togglePending = false
-}: ColumnProps) {
+function HostedLead({ card, connectElement, onOpenAdmin, onToggleForMe, onVerb, orgDisabledCount = 0 }: PartProps) {
   const { t } = useI18n()
-  const copy = t.connectorsPage.dialog
   const hosted = card.ways.hosted
-
   const reason = card.reason ? (card.reason.text ?? t.connectorsPage.card.reason[card.reason.key]) : undefined
   const appSwitch = ruleable(hosted) && onToggleForMe !== undefined
   const offerVerb = leadVerb({ appSwitch, card, hasElement: connectElement !== undefined, onVerb })
+  const showsReason = reason !== undefined && connectElement === undefined
+
+  if (connectElement === undefined && offerVerb === undefined && !showsReason && orgDisabledCount <= 0) {
+    return null
+  }
 
   return (
-    <>
+    <div className="grid shrink-0 gap-3 border-b border-(--ui-stroke-tertiary) px-3.5 py-3">
       {connectElement}
 
-      {reason === undefined || connectElement ? null : (
-        <p className="text-[0.72rem] text-(--ui-text-secondary)">{reason}</p>
-      )}
+      {showsReason ? <p className="text-[0.72rem] text-(--ui-text-secondary)">{reason}</p> : null}
 
       {offerVerb === undefined ? null : (
         <Button className="self-start" onClick={offerVerb.run} size="sm">
@@ -219,79 +208,77 @@ function HostedColumn({
         </Button>
       )}
 
-      {accountLabel ? <p className="text-[0.78rem] text-(--ui-text-primary)">{copy.actsAs(accountLabel)}</p> : null}
-
-      <ConnectedOn connectedOn={connectedOn} onDisconnect={onDisconnect} />
-
-      {appSwitch && hosted && onToggleForMe ? (
-        <AppSwitch
-          card={card}
-          frozen={togglePending || rulesReadOnly}
-          on={hosted.state !== 'off'}
-          onToggleForMe={onToggleForMe}
-        />
-      ) : null}
-
       <OrgNote count={orgDisabledCount} onOpenAdmin={onOpenAdmin} />
-
-      <div className="grid gap-1 border-t border-(--ui-stroke-tertiary) pt-3">
-        <p className="text-[0.7rem] text-(--ui-text-tertiary)">
-          {copy.hostedFooter(localResidencyWord(t.connectorsPage))}
-        </p>
-        <p className="text-[0.7rem] text-(--ui-text-tertiary)">{copy.nousLine}</p>
-      </div>
-    </>
+    </div>
   )
 }
 
-function ConnectedOn({ connectedOn, onDisconnect }: { connectedOn?: string; onDisconnect?: () => void }) {
+function HostedFoot({ card }: PartProps) {
   const { t } = useI18n()
-  const copy = t.connectorsPage.dialog
 
-  if (!connectedOn) {
+  return card.ways.hosted ? <FootLine>{t.connectorsPage.dialog.nousLine}</FootLine> : null
+}
+
+function LocalLead({ card, onAuthenticate, onServerToggle }: PartProps) {
+  const local = card.ways.local
+
+  if (!local) {
     return null
   }
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[0.7rem] text-(--ui-text-tertiary)">{copy.connectedOn(connectedOn)}</span>
-      {onDisconnect ? (
-        <Button className="text-destructive hover:text-destructive" onClick={onDisconnect} size="xs" variant="text">
-          {copy.disconnect}
-        </Button>
+    <div className="shrink-0 border-b border-(--ui-stroke-tertiary) px-3.5 py-2.5">
+      <LocalServerControl
+        name={card.name}
+        onAuthenticate={onAuthenticate}
+        onServerToggle={card.plugin === undefined ? onServerToggle : undefined}
+        way={local}
+      />
+    </div>
+  )
+}
+
+function LocalFoot({ advanced, cost }: PartProps) {
+  const { t } = useI18n()
+  const copy = t.connectorsPage.dialog
+  const metrics = cost && (cost.tokensPerCall || cost.usesPerMonth)
+
+  if (!metrics && !advanced) {
+    return null
+  }
+
+  return (
+    <div className="grid shrink-0 gap-3 border-t border-(--ui-stroke-tertiary) px-3.5 py-2.5">
+      {metrics ? (
+        <div className="flex gap-6">
+          <Metric label={copy.tokensPerCall} value={cost?.tokensPerCall} />
+          <Metric label={copy.usesPerMonth} value={cost?.usesPerMonth} />
+        </div>
+      ) : null}
+
+      {advanced ? (
+        <details className="group grid gap-2">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-(--ui-text-primary)">
+            <Codicon
+              className={cn('shrink-0 transition-transform duration-100 group-open:rotate-90')}
+              name="chevron-right"
+              size="0.75rem"
+            />
+            <span className="shrink-0">{copy.advanced}</span>
+            <span className="min-w-0 truncate font-normal text-(--ui-text-quaternary)">{copy.advancedHint}</span>
+          </summary>
+          <div className="pt-2">{advanced}</div>
+        </details>
       ) : null}
     </div>
   )
 }
 
-function AppSwitch({
-  card,
-  frozen,
-  on,
-  onToggleForMe
-}: {
-  card: ConnectorCardModel
-  frozen: boolean
-  on: boolean
-  onToggleForMe: (next: boolean) => void
-}) {
-  const { t } = useI18n()
-  const copy = t.connectorsPage.dialog
-
+function FootLine({ children }: { children: string }) {
   return (
-    <div className="grid gap-1 border-t border-(--ui-stroke-tertiary) pt-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 text-xs font-medium text-(--ui-text-primary)">{copy.appSwitch(card.name)}</span>
-        <Switch
-          aria-label={copy.appSwitch(card.name)}
-          checked={on}
-          disabled={card.offBy === 'org' || frozen}
-          onCheckedChange={onToggleForMe}
-          size="xs"
-        />
-      </div>
-      <p className="text-[0.7rem] text-(--ui-text-tertiary)">{switchHint(copy, card.offBy)}</p>
-    </div>
+    <p className="shrink-0 border-t border-(--ui-stroke-tertiary) px-3.5 py-2 text-[0.7rem] text-(--ui-text-tertiary)">
+      {children}
+    </p>
   )
 }
 
@@ -312,70 +299,6 @@ function OrgNote({ count, onOpenAdmin }: { count: number; onOpenAdmin?: () => vo
         </Button>
       ) : null}
     </div>
-  )
-}
-
-function LocalColumn({
-  advanced,
-  card,
-  cost,
-  onAuthenticate,
-  onServerToggle
-}: ColumnProps) {
-  const { t } = useI18n()
-  const copy = t.connectorsPage.dialog
-  const target = localTarget(card)
-  const local = card.ways.local
-
-  return (
-    <>
-      {card.ways.hosted || !local ? null : (
-        <LocalServerControl
-          name={card.name}
-          onAuthenticate={onAuthenticate}
-          onServerToggle={onServerToggle}
-          way={local}
-        />
-      )}
-
-      {local && !card.ways.hosted && target ? (
-        <div className="grid gap-1.5">
-          <h3 className="text-xs font-medium text-(--ui-text-primary)">{copy.whereItLives}</h3>
-          <code className="break-all font-mono text-[0.65rem] text-(--ui-text-tertiary)">{target}</code>
-        </div>
-      ) : null}
-
-      {cost && (cost.tokensPerCall || cost.usesPerMonth) ? (
-        <>
-          <Separator />
-          <div className="grid gap-1.5">
-            <h3 className="text-xs font-medium text-(--ui-text-primary)">{copy.whatItCosts}</h3>
-            <div className="flex gap-6">
-              <Metric label={copy.tokensPerCall} value={cost.tokensPerCall} />
-              <Metric label={copy.usesPerMonth} value={cost.usesPerMonth} />
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      {advanced ? (
-        <>
-          <Separator />
-          <details className="group grid gap-2">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-(--ui-text-primary)">
-              <Codicon
-                className={cn('shrink-0 transition-transform duration-100 group-open:rotate-90')}
-                name="chevron-right"
-                size="0.75rem"
-              />
-              <span className="shrink-0">{copy.advanced}</span>
-              <span className="min-w-0 truncate font-normal text-(--ui-text-quaternary)">{copy.advancedHint}</span>
-            </summary>
-            <div className="pt-2">{advanced}</div>
-          </details>
-        </>
-      ) : null}
-    </>
   )
 }
 

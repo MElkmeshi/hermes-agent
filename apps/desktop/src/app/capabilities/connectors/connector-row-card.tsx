@@ -7,7 +7,7 @@ import { connectorIconUrl } from '@/lib/connector-tools'
 import { cn } from '@/lib/utils'
 
 import { CatalogMark } from './catalog-mark'
-import { localResidencyWord } from './residency'
+import { connectorKindWord } from './connector-kind'
 import type { ConnectorCardModel, ConnectorFact, ConnectorState } from './types'
 
 const STATE_DOT = {
@@ -103,11 +103,9 @@ export function ConnectorRowCard({
             <span className="sr-only">{` — ${copy.open(card.name)}`}</span>
           </button>
 
-          <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">
-            {local ? localResidencyWord(t.connectorsPage) : copy.hosted}
-          </span>
+          <span className="shrink-0 text-[0.6875rem] text-(--ui-text-tertiary)">{connectorKindWord(card, copy)}</span>
 
-          {card.inCatalog ? <CatalogMark /> : null}
+          {card.inCatalog && !local ? <CatalogMark /> : null}
         </div>
 
         <SecondLine card={card} reason={reason} />
@@ -116,7 +114,7 @@ export function ConnectorRowCard({
       <CardLane
         busy={busy}
         card={card}
-        onServerToggle={local ? onServerToggle : undefined}
+        onServerToggle={local && card.plugin === undefined ? onServerToggle : undefined}
         onVerb={onVerb}
         stateLabel={stateLabel}
         withDot={!unset}

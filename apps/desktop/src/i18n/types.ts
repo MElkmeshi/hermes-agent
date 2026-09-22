@@ -98,12 +98,8 @@ export interface Translations {
     filterCategory: string
     categoryAll: string
     uncategorised: string
-    /** The residency word, per platform. The page resolves it once and uses it wherever the word appears. */
-    residencyLocal: {
-      mac: string
-      other: string
-      windows: string
-    }
+    /** The residency word. One word on every platform, so nothing resolves it per host. */
+    residencyLocal: string
     /** `local` is absent on purpose: that segment is labelled with `residencyLocal`. */
     segment: {
       all: string
@@ -120,7 +116,9 @@ export interface Translations {
       offNote: string
     }
     card: {
-      hosted: string
+      kindManaged: string
+      kindCustom: string
+      kindPlugin: (plugin: string) => string
       inCatalog: string
       open: (name: string) => string
       turnServerOn: (name: string) => string
@@ -187,10 +185,36 @@ export interface Translations {
       action: string
       title: string
       hint: string
+      pasteLabel: string
+      pastePlaceholder: string
+      pasteNoMatch: string
+      name: string
+      nameTaken: string
+      type: string
+      typeStdio: string
+      typeHttp: string
+      command: string
+      args: string
+      addArg: string
+      envVars: string
+      addEnvVar: string
+      passthrough: string
+      addPassthrough: string
+      cwd: string
+      url: string
+      headers: string
+      addHeader: string
+      auth: string
+      authNone: string
+      authOauth: string
+      authBearer: string
+      keyPlaceholder: string
+      valuePlaceholder: string
+      removeRow: string
+      editJson: string
+      saveFailed: string
     }
     dialog: {
-      actsAs: (account: string) => string
-      connectedOn: (date: string) => string
       disconnect: string
       disconnectTitle: (name: string) => string
       disconnectBody: string
@@ -199,9 +223,8 @@ export interface Translations {
       removeServerTitle: (name: string) => string
       removeServerBody: string
       appSwitch: (name: string) => string
-      appSwitchHint: string
-      appSwitchOrg: string
-      hostedFooter: (where: string) => string
+      providedByPlugin: (plugin: string) => string
+      openPlugins: string
       nousLine: string
       rulesReadOnly: string
       rulesAppOff: (name: string) => string
@@ -210,8 +233,6 @@ export interface Translations {
       orgLink: string
       connectEnded: string
       connectOpenAgain: string
-      whereItLives: string
-      whatItCosts: string
       tokensPerCall: string
       usesPerMonth: string
       advanced: string
@@ -234,11 +255,6 @@ export interface Translations {
       moreHints: (count: number) => string
       staleSignIn: string
       searchCountPlaceholder: (count: number) => string
-      freshnessJustNow: string
-      freshnessHours: (hours: number) => string
-      freshnessDays: (days: number) => string
-      refresh: string
-      refreshing: string
       toolList: (name: string) => string
       categorySelect: (count: number) => string
       showDeprecated: (count: number) => string

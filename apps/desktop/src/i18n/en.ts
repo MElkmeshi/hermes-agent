@@ -44,11 +44,7 @@ export const en: Translations = {
     categoryAll: 'All categories',
     uncategorised: 'Uncategorised',
 
-    residencyLocal: {
-      mac: 'On this Mac',
-      other: 'On this computer',
-      windows: 'On this PC'
-    },
+    residencyLocal: 'On this device',
 
     segment: {
       all: 'All',
@@ -66,7 +62,9 @@ export const en: Translations = {
     },
 
     card: {
-      hosted: 'Hosted',
+      kindManaged: 'Managed',
+      kindCustom: 'MCP · Custom',
+      kindPlugin: (plugin: string) => `MCP · Plugin ${plugin}`,
       inCatalog: 'In the Hermes catalog',
       open: (name: string) => `Open ${name}`,
       turnServerOn: (name: string) => `Turn ${name} on`,
@@ -133,13 +131,39 @@ export const en: Translations = {
 
     add: {
       action: 'Add your own',
-      title: 'Add a server',
-      hint: 'one new entry in mcp.json on this computer'
+      title: 'Connect to a custom MCP',
+      hint: 'one new entry in mcp.json on this device',
+      pasteLabel: 'Paste a command or a snippet',
+      pastePlaceholder: 'npx -y @modelcontextprotocol/server-filesystem /path/to/dir',
+      pasteNoMatch: 'Nothing here reads as a server. Fill the fields below instead.',
+      name: 'Name',
+      nameTaken: 'That name is already used.',
+      type: 'Type',
+      typeStdio: 'STDIO',
+      typeHttp: 'Streamable HTTP',
+      command: 'Command to launch',
+      args: 'Arguments',
+      addArg: '+ Add argument',
+      envVars: 'Environment variables',
+      addEnvVar: '+ Add environment variable',
+      passthrough: 'Environment variable passthrough',
+      addPassthrough: '+ Add variable',
+      cwd: 'Working directory',
+      url: 'URL',
+      headers: 'Headers',
+      addHeader: '+ Add header',
+      auth: 'Auth',
+      authNone: 'None',
+      authOauth: 'OAuth',
+      authBearer: 'Bearer token',
+      keyPlaceholder: 'KEY',
+      valuePlaceholder: 'value',
+      removeRow: 'Remove this row',
+      editJson: 'Edit mcp.json',
+      saveFailed: 'That server was not saved.'
     },
 
     dialog: {
-      actsAs: (account: string) => `Hermes acts as ${account}`,
-      connectedOn: (date: string) => `Connected ${date}`,
       disconnect: 'Disconnect',
       disconnectTitle: (name: string) => `Disconnect ${name}?`,
       disconnectBody: 'Hermes stops acting as this account. You can connect again at any time.',
@@ -148,9 +172,8 @@ export const en: Translations = {
       removeServerTitle: (name: string) => `Remove ${name}?`,
       removeServerBody: 'The entry leaves mcp.json on this computer. Nothing else is deleted.',
       appSwitch: (name: string) => `Hermes can use ${name}`,
-      appSwitchHint: 'Your sign-in stays either way.',
-      appSwitchOrg: 'Turned off by your organisation.',
-      hostedFooter: (where: string) => `Hosted. Nothing is installed ${where.replace(/^On /, 'on ')}.`,
+      providedByPlugin: (plugin: string) => `Provided by plugin ${plugin}`,
+      openPlugins: 'Open the Plugins tab',
       // Verbatim, by decision of the design of record.
       nousLine: 'Nous apps follow your account, not the profile.',
       rulesReadOnly: 'Rules cannot be changed right now.',
@@ -160,8 +183,6 @@ export const en: Translations = {
       orgLink: 'Open the connectors admin',
       connectEnded: 'The sign-in did not finish.',
       connectOpenAgain: 'Open the link again',
-      whereItLives: 'Where it lives',
-      whatItCosts: 'What it costs',
       tokensPerCall: 'tokens per call',
       usesPerMonth: 'uses in 30 days',
       advanced: 'Advanced',
@@ -185,11 +206,6 @@ export const en: Translations = {
       moreHints: (count: number) => `+${count}`,
       staleSignIn: 'Sign in to read the latest tool list.',
       searchCountPlaceholder: (count: number) => `Search ${count} tools`,
-      freshnessJustNow: 'Updated just now',
-      freshnessHours: (hours: number) => `Updated ${hours} h ago`,
-      freshnessDays: (days: number) => `Updated ${days} d ago`,
-      refresh: 'Refresh',
-      refreshing: 'Refreshing',
       toolList: (name: string) => `${name} tools`,
       categorySelect: (count: number) => `${count} categories`,
       showDeprecated: (count: number) => `Show ${count} deprecated`,

@@ -1,10 +1,7 @@
 import { useStore } from '@nanostores/react'
 
 import type { ProfileScope } from '@/hermes'
-import { useI18n } from '@/i18n'
 import { openFreeTierSignIn } from '@/store/free-tier-sign-in'
-
-import type { McpServersController } from '../mcp/use-mcp-servers'
 
 import { ConnectElement } from './connect-element'
 import { ConnectorDialog } from './connector-dialog'
@@ -16,14 +13,12 @@ import {
 } from './data/account-operations'
 import { openConnectorsAdmin } from './data/portal'
 import { type HostedConnectorsView, useConnectorTools } from './data/queries'
-import { localServerName } from './derive'
 import { ConnectorDialogMenu } from './dialog-menu'
 import { HostedToolsPanel, orgDisabledCount } from './tools-panel'
 import type { ConnectorCardModel } from './types'
 
 export interface HostedConnectorDialogProps {
   card: ConnectorCardModel
-  controller: McpServersController
   hosted: HostedConnectorsView
   onClose: () => void
   onDisconnect: () => void
@@ -37,7 +32,6 @@ export interface HostedConnectorDialogProps {
 
 export function HostedConnectorDialog({
   card,
-  controller,
   hosted,
   onClose,
   onDisconnect,
@@ -48,7 +42,6 @@ export function HostedConnectorDialog({
   profile,
   togglePending
 }: HostedConnectorDialogProps) {
-  const { locale } = useI18n()
   const tools = useConnectorTools(profile, card.slug, hosted.listSlugs.has(card.slug))
   const operation = accountOperationFor(useStore($accountOperations), card.slug)
 
@@ -73,13 +66,15 @@ export function HostedConnectorDialog({
 
   return (
     <ConnectorDialog
-      accountLabel={card.ways.hosted?.accountLabel}
       card={card}
-      connectedOn={formatDate(card.ways.hosted?.connectedAt, locale)}
       connectElement={element}
-      menu={<ConnectorDialogMenu onReconnect={onReconnect} onRefreshTools={tools.refresh} />}
-      onAuthenticate={() => void controller.authenticate(localServerName(card))}
-      onDisconnect={onDisconnect}
+      menu={
+        <ConnectorDialogMenu
+          onDisconnect={card.ways.hosted?.connected === true ? onDisconnect : undefined}
+          onReconnect={onReconnect}
+          onRefreshTools={tools.refresh}
+        />
+      }
       onOpenAdmin={() => void openConnectorsAdmin()}
       onOpenChange={next => {
         if (!next) {
@@ -90,7 +85,6 @@ export function HostedConnectorDialog({
           onClose()
         }
       }}
-      onServerToggle={next => void controller.setServerEnabled(localServerName(card), next)}
       onToggleForMe={onToggleForMe}
       onVerb={onVerb}
       open
@@ -104,14 +98,4 @@ export function HostedConnectorDialog({
 
 function stillOpen(operation: AccountOperation | null): operation is AccountOperation {
   return operation !== null && (!operation.settled || !operation.targets.every(target => target.state === 'connected'))
-}
-
-const formatDate = (iso: string | undefined, locale: string): string | undefined => {
-  if (!iso) {
-    return undefined
-  }
-
-  const at = new Date(iso)
-
-  return Number.isNaN(at.getTime()) ? undefined : at.toLocaleDateString(locale)
 }

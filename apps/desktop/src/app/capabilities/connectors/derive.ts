@@ -142,6 +142,7 @@ export function localWay(server: LocalServerInput): ConnectorWayLocal {
 
   return {
     fact: localFact(server, phase.state),
+    plugin: server.plugin,
     reason: phase.reason ? { key: phase.reason } : undefined,
     serverEnabled: server.enabled,
     serverName: server.name,
@@ -200,6 +201,7 @@ export function mergeCard({ description, inCatalog, name, slug, ways }: MergeCar
   return {
     ...base,
     offBy: speaker.way.state === 'off' ? 'me' : undefined,
+    plugin: speaker.way.plugin,
     residency: 'local',
     state: speaker.way.state,
     stateWord: localWord(speaker.way),

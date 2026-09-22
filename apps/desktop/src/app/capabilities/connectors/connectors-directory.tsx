@@ -10,7 +10,6 @@ import { useI18n } from '@/i18n'
 import { ConnectorRowCard } from './connector-row-card'
 import { cardKey, EMPTY_CONNECTORS_FILTER } from './derive'
 import { derivePage, showsAttentionFirst } from './derive-page'
-import { localResidencyWord } from './residency'
 import { ToolsWash } from './tools-status'
 import type { ConnectorCardModel, ConnectorGroupModel, ConnectorSegmentId, ConnectorsFilter } from './types'
 
@@ -50,7 +49,7 @@ export function ConnectorsDirectory({
 }: ConnectorsDirectoryProps) {
   const { t } = useI18n()
   const copy = t.connectorsPage
-  const where = localResidencyWord(copy)
+  const where = copy.residencyLocal
   const segmentLabel = (id: ConnectorSegmentId) => (id === 'local' ? where : copy.segment[id])
   const set = (patch: Partial<ConnectorsFilter>) => onFilterChange({ ...filter, ...patch })
 

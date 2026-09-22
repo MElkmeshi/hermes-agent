@@ -4,7 +4,9 @@ import type {
   ConnectorRow as ConnectorListRow,
   ConnectorPolicyGetResult,
   ConnectorPolicyLayer,
-  ConnectorToolsResult
+  McpRuntimeStatus,
+  McpServerRuntimeRow,
+  McpServerSummary
 } from '@hermes/shared'
 
 import { connectorTitle } from '@/lib/connector-tools'
@@ -12,14 +14,7 @@ import type { McpServers } from '@/lib/mcp-servers'
 
 import { canAuthenticate } from '../../mcp/mcp-status'
 import { toolRows } from '../derive-tools'
-import type {
-  HostedConnectorInput,
-  LocalServerInput,
-  LocalServerStatus,
-  ToolInput,
-  ToolRowModel,
-  ToolsFreshness
-} from '../types'
+import type { HostedConnectorInput, LocalServerInput, LocalServerStatus, ToolInput, ToolRowModel } from '../types'
 
 export interface ConnectorPolicyTagRules {
   disable: readonly string[]
@@ -243,6 +238,36 @@ export function joinLocalServers({ servers, status, toolCounts, usage }: LocalJo
   })
 }
 
-export const toolsFreshness = (result: ConnectorToolsResult): ToolsFreshness => ({
-  fetchedAt: result.fetched_at * 1000
-})
+const RUNTIME_STATUS = {
+  configured: 'unknown',
+  connected: 'ok',
+  connecting: 'probing',
+  disabled: 'off',
+  failed: 'error',
+  lazy: 'unknown'
+} satisfies Record<McpRuntimeStatus, LocalServerStatus>
+
+export interface PluginServerJoinInput {
+  runtime: readonly McpServerRuntimeRow[]
+  servers: readonly McpServerSummary[]
+}
+
+/** The servers a plugin provides. They are not in mcp.json, so the config record never carries them. */
+export function pluginServerRows({ runtime, servers }: PluginServerJoinInput): LocalServerInput[] {
+  const live = new Map(runtime.map(row => [row.name, row]))
+
+  return servers
+    .filter(row => row.source === 'plugin')
+    .map(row => {
+      const state = live.get(row.name)
+
+      return {
+        enabled: row.enabled,
+        name: row.name,
+        plugin: row.plugin ?? '',
+        status: state ? RUNTIME_STATUS[state.status] : 'unknown',
+        target: text(row.url) ?? [row.command ?? '', ...row.args].join(' ').trim(),
+        toolsTotal: state?.tools
+      }
+    })
+}

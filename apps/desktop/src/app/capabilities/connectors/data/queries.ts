@@ -10,15 +10,15 @@ import { notifyError } from '@/store/notifications'
 
 import { hostedPhase } from '../derive'
 import { toolReadStatus } from '../derive-tools'
-import type { HostedConnectorInput, HostedPhase, ToolInput, ToolsEditorStatus, ToolsFreshness } from '../types'
+import type { HostedConnectorInput, HostedPhase, LocalServerInput, ToolInput, ToolsEditorStatus } from '../types'
 
 import {
   type ConnectorPolicyView,
   connectorTitles,
   EMPTY_POLICY,
   joinHostedConnectors,
-  readPolicy,
-  toolsFreshness
+  pluginServerRows,
+  readPolicy
 } from './join'
 import {
   CONNECTOR_GC_TIME,
@@ -29,7 +29,9 @@ import {
   connectorsPolicyQueryKey,
   connectorToolsQueryKey,
   invalidateConnectorApp,
-  invalidateConnectors
+  invalidateConnectors,
+  PLUGIN_SERVERS_STALE_TIME,
+  pluginServersQueryKey
 } from './keys'
 import { clearPersisted, seedOptions } from './persist'
 import {
@@ -38,7 +40,9 @@ import {
   connectorCatalog,
   connectorPolicy,
   connectorTools,
-  listConnectors
+  listConnectors,
+  listMcpServers,
+  mcpServerStatus
 } from './rpc'
 
 const read = (of: keyof typeof CONNECTOR_LIFETIMES) => ({
@@ -152,6 +156,25 @@ export function useHostedConnectors(scope: ProfileScope): HostedConnectorsView {
   }
 }
 
+const NO_PLUGIN_SERVERS: LocalServerInput[] = []
+
+/** The plugin-provided servers, which mcp.json — and so the config record — never lists. */
+export function usePluginServers(scope: ProfileScope): LocalServerInput[] {
+  const plugins = useQuery({
+    gcTime: CONNECTOR_GC_TIME,
+    queryFn: async () => {
+      const [list, runtime] = await Promise.all([listMcpServers(scope), mcpServerStatus(scope)])
+
+      return pluginServerRows({ runtime: runtime.servers, servers: list.servers })
+    },
+    queryKey: pluginServersQueryKey(scope),
+    retry: false,
+    staleTime: PLUGIN_SERVERS_STALE_TIME
+  })
+
+  return plugins.data ?? NO_PLUGIN_SERVERS
+}
+
 function reportVersionSkew(cause: unknown): never {
   if (isMissingRpcMethod(cause) || isOutOfSyncRpcParams(cause instanceof Error ? cause : String(cause))) {
     notifyError(cause, translateNow('connectorsPage.page.hostedFailedTitle'))
@@ -170,9 +193,7 @@ export function connectorToolsQueryOptions(scope: ProfileScope, slug: string) {
 }
 
 export interface ConnectorToolsView {
-  freshness: ToolsFreshness | null
   refresh: () => void
-  refreshing: boolean
   retry: () => void
   signedOut: boolean
   status: ToolsEditorStatus | null
@@ -195,9 +216,7 @@ export function useConnectorTools(scope: ProfileScope, slug: null | string, list
   const reason = error === null ? null : (error.reason ?? 'CONNECTOR_REQUEST_FAILED')
 
   return {
-    freshness: tools.data ? toolsFreshness(tools.data) : null,
     refresh: () => revalidate.mutate(),
-    refreshing: revalidate.isPending,
     retry: () => invalidateConnectorApp(scope, slug ?? ''),
     signedOut: reason === 'NEEDS_NOUS_AUTH',
     status:

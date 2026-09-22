@@ -21,6 +21,8 @@ export interface LocalServerInput {
   canAuthenticate?: boolean
   enabled: boolean
   name: string
+  /** Set when a plugin owns this server: it is outside mcp.json and nothing here may write it. */
+  plugin?: string
   status: LocalServerStatus
   target: string
   toolsOn?: number
@@ -89,6 +91,7 @@ export interface ConnectorWayHosted {
 
 export interface ConnectorWayLocal {
   fact?: ConnectorFact
+  plugin?: string
   reason?: ConnectorReason
   serverEnabled?: boolean
   serverName?: string
@@ -107,6 +110,8 @@ export interface ConnectorCardModel {
   inCatalog: boolean
   name: string
   offBy?: ConnectorOffBy
+  /** The plugin that owns this server, when one does: no switch, no remove, no write. */
+  plugin?: string
   reason?: ConnectorReason
   residency: ConnectorResidency
   slug: string
@@ -183,10 +188,6 @@ export interface FacetSummaryRow {
 export interface ToolsEditorCounts {
   backOn: number
   off: number
-}
-
-export interface ToolsFreshness {
-  fetchedAt: number
 }
 
 export type QuickActionId = 'everything-on' | 'no-destructive' | 'read-only'
