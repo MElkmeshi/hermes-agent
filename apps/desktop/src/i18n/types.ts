@@ -710,6 +710,7 @@ export interface Translations {
         includesHeading: string
         agentLabel: string
         desktopLabel: string
+        profileLabel: string
         agentTargetLocal: (profile: string, dir: string) => string
         agentTargetRemote: (profile: string) => string
         catalogPinned: (name: string, sha: string) => string
@@ -1040,6 +1041,9 @@ export interface Translations {
       daysAgo: (count: number) => string
     }
     config: {
+      minimizeToTrayTitle: string
+      minimizeToTrayDesc: string
+      minimizeToTrayUnavailable: string
       none: string
       noneParen: string
       builtinOnly: string
@@ -1065,6 +1069,14 @@ export interface Translations {
       attachmentSizeUnit: string
       attachmentSizeLabel: string
       showOptions: string
+    }
+    hudModifier: {
+      title: string
+      description: string
+      permission: string
+      unavailable: string
+      missingHelper: string
+      unsupportedSession: string
     }
     screenshot: {
       enabledTitle: string
@@ -1815,6 +1827,9 @@ export interface Translations {
       updateToPin: (sha: string) => string
       updateFailed: (name: string) => string
       updated: (name: string) => string
+      updateConsentTitle: (name: string) => string
+      updateConsentBody: (name: string, sha: string) => string
+      updateConsentConfirm: string
       uninstall: string
       uninstallTip: (name: string, profile: string) => string
       uninstallConfirmTitle: (name: string) => string
@@ -1828,6 +1843,15 @@ export interface Translations {
       deepLinkCatalogInvalidName: string
       deepLinkCatalogUnknown: (name: string) => string
       deepLinkCatalogUnavailable: string
+      settingsToggle: (name: string) => string
+      settingsForm: {
+        save: string
+        saved: (name: string) => string
+        saveFailed: (name: string) => string
+        optional: string
+        secretSet: string
+        secretStoredAs: (env: string) => string
+      }
     }
     officialCatalog: string
     officialPill: string
