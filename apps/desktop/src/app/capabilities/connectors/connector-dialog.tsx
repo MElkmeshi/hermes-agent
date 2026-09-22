@@ -264,7 +264,7 @@ function LocalLead({
 }: PartProps) {
   const local = card.ways.local
 
-  if (!local) {
+  if (!local || (card.plugin !== undefined && !card.ways.hosted)) {
     return null
   }
 

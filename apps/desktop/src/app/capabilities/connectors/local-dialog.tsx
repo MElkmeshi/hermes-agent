@@ -2,16 +2,18 @@ import { compactNumber } from '@hermes/shared'
 import { useLocation, useNavigate } from 'react-router'
 
 import { PanelEmpty } from '@/app/overlays/panel'
-import { Button } from '@/components/ui/button'
+import type { ProfileScope } from '@/hermes'
 import { useI18n } from '@/i18n'
 
 import type { McpServersController } from '../mcp/use-mcp-servers'
 
 import { ConnectorDialog } from './connector-dialog'
+import { invalidatePluginProbe } from './data/keys'
 import { localServerName } from './derive'
 import { ConnectorDialogMenu } from './dialog-menu'
 import type { InstallField } from './local-server-control'
 import { LocalAdvanced } from './local-slots'
+import { PluginToolsPanel } from './plugin-tools-panel'
 import { LocalToolsPanel } from './tools-panel'
 import type { ConnectorCardModel } from './types'
 
@@ -27,6 +29,7 @@ export interface LocalConnectorDialogProps {
   onInstall: (env: Record<string, string>) => void
   onReconnect: () => void
   onRemoveServer: () => void
+  profile: ProfileScope
 }
 
 export function LocalConnectorDialog({
@@ -38,7 +41,8 @@ export function LocalConnectorDialog({
   onConnect,
   onInstall,
   onReconnect,
-  onRemoveServer
+  onRemoveServer,
+  profile
 }: LocalConnectorDialogProps) {
   const { t } = useI18n()
   const name = localServerName(card)
@@ -47,6 +51,14 @@ export function LocalConnectorDialog({
   const installed = card.ways.local?.installed === true
   const owned = plugin === undefined && installed
 
+  const refreshTools = () => {
+    if (plugin === undefined) {
+      void controller.runProbe(name)
+    } else {
+      invalidatePluginProbe(profile, name)
+    }
+  }
+
   return (
     <ConnectorDialog
       advanced={owned ? <LocalAdvanced controller={controller} name={name} onRemove={onRemoveServer} /> : undefined}
@@ -54,7 +66,7 @@ export function LocalConnectorDialog({
       cost={localCost(controller, name)}
       installFields={installFields}
       installing={installing}
-      menu={<ConnectorDialogMenu onRefreshTools={() => void controller.runProbe(name)} />}
+      menu={<ConnectorDialogMenu onRefreshTools={refreshTools} />}
       onAuthenticate={() => void controller.authenticate(name)}
       onConnect={onConnect}
       onInstall={onInstall}
@@ -68,7 +80,7 @@ export function LocalConnectorDialog({
       open
       tools={
         plugin !== undefined ? (
-          <PluginNote onOpenPlugins={openPlugins} plugin={plugin} />
+          <PluginToolsPanel card={card} onOpenPlugins={openPlugins} plugin={plugin} scope={profile} />
         ) : installed ? (
           <LocalToolsPanel card={card} controller={controller} onRemove={onRemoveServer} />
         ) : (
@@ -80,20 +92,6 @@ export function LocalConnectorDialog({
         )
       }
     />
-  )
-}
-
-function PluginNote({ onOpenPlugins, plugin }: { onOpenPlugins: () => void; plugin: string }) {
-  const { t } = useI18n()
-  const copy = t.connectorsPage.dialog
-
-  return (
-    <div className="grid min-h-0 flex-1 content-start justify-items-center gap-2 px-3.5 py-10 text-center">
-      <p className="text-xs text-(--ui-text-tertiary)">{copy.providedByPlugin(plugin)}</p>
-      <Button onClick={onOpenPlugins} size="inline" variant="textStrong">
-        {copy.openPlugins}
-      </Button>
-    </div>
   )
 }
 

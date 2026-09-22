@@ -29,6 +29,8 @@ export interface LocalServerInput {
   plugin?: string
   status: LocalServerStatus
   target: string
+  /** The name to show when the runtime key is not it: a plugin server is `<plugin namespace>__<name>`. */
+  title?: string
   toolsOn?: number
   toolsTotal?: number
   unused?: boolean

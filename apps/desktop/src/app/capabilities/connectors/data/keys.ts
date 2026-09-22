@@ -43,6 +43,12 @@ export const pluginServersQueryKey = (scope: ProfileScope) => scoped(scope, 'plu
 
 export const PLUGIN_SERVERS_STALE_TIME = 5 * MINUTE
 
+export const pluginProbeQueryKey = (scope: ProfileScope, name: string) => scoped(scope, 'plugin-probe', name)
+
+export function invalidatePluginProbe(scope: ProfileScope, name: string): void {
+  void queryClient.invalidateQueries({ queryKey: pluginProbeQueryKey(scope, name) })
+}
+
 export function invalidateConnectors(scope: ProfileScope, ...reads: [ConnectorRead, ...ConnectorRead[]]): void {
   for (const read of reads) {
     void queryClient.invalidateQueries({ queryKey: scoped(scope, read) })

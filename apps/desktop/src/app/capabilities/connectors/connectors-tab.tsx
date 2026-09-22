@@ -269,6 +269,7 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
           onInstall={env => void startInstall(openCard, env)}
           onReconnect={() => void startConnect(openCard, true)}
           onRemoveServer={() => setRemoveServer(openCard)}
+          profile={profile}
         />
       ) : null}
 

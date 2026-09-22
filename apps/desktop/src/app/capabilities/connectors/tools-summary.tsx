@@ -51,6 +51,7 @@ export interface ToolsSummaryProps {
   preview: boolean
   readOnly: boolean
   rows: FacetSummaryRow[]
+  title?: string
   total: number
 }
 
@@ -61,6 +62,7 @@ export function ToolsSummary({
   preview,
   readOnly,
   rows,
+  title,
   total
 }: ToolsSummaryProps) {
   const { t } = useI18n()
@@ -70,7 +72,7 @@ export function ToolsSummary({
     <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-3.5 py-3" data-slot="tools-summary">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="min-w-0 truncate text-xs font-medium text-(--ui-text-primary)">
-          {preview ? copy.summaryPreviewTitle(connectorName) : copy.summaryTitle(connectorName)}
+          {title ?? (preview ? copy.summaryPreviewTitle(connectorName) : copy.summaryTitle(connectorName))}
         </h3>
         <span className="shrink-0 tabular-nums text-[0.7rem] text-(--ui-text-tertiary)">
           {copy.summaryCount(total)}

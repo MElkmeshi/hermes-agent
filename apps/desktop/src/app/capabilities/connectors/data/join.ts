@@ -39,12 +39,11 @@ export interface ConnectorPolicyRules {
 }
 
 export interface ConnectorPolicyView {
-  effectiveRevision: string | null
   member: ConnectorPolicyRules | null
   others: readonly ConnectorPolicyRules[]
 }
 
-export const EMPTY_POLICY: ConnectorPolicyView = { effectiveRevision: null, member: null, others: [] }
+export const EMPTY_POLICY: ConnectorPolicyView = { member: null, others: [] }
 
 const NO_TAGS: ConnectorPolicyTagRules = { disable: [], enable: [] }
 
@@ -81,7 +80,6 @@ export function readPolicy(result: ConnectorPolicyGetResult): ConnectorPolicyVie
   const member = layers.find(layer => layer.kind === 'member')
 
   return {
-    effectiveRevision: result.effective.revision,
     member: member ? rulesOf(member) : null,
     others: layers.filter(layer => layer.kind !== 'member').map(rulesOf)
   }
@@ -99,8 +97,7 @@ export const orgLocks = (policy: ConnectorPolicyView, slug: string): boolean =>
 export const memberDisabledTools = (policy: ConnectorPolicyView, slug: string): readonly string[] =>
   policy.member?.tools[slug] ?? []
 
-export const memberRevision = (policy: ConnectorPolicyView): string | undefined =>
-  policy.member?.revision ?? policy.effectiveRevision ?? undefined
+export const memberRevision = (policy: ConnectorPolicyView): string | undefined => policy.member?.revision
 
 export function orgLockedTools(policy: ConnectorPolicyView, slug: string, tools: readonly ToolInput[]): Set<string> {
   const locked = new Set<string>()
@@ -300,6 +297,7 @@ export function pluginServerRows({ runtime, servers }: PluginServerJoinInput): L
     .filter(row => row.source === 'plugin')
     .map(row => {
       const state = live.get(row.name)
+      const split = row.name.indexOf('__')
 
       return {
         enabled: row.enabled,
@@ -307,6 +305,7 @@ export function pluginServerRows({ runtime, servers }: PluginServerJoinInput): L
         plugin: row.plugin ?? '',
         status: state ? RUNTIME_STATUS[state.status] : 'unknown',
         target: text(row.url) ?? [row.command ?? '', ...row.args].join(' ').trim(),
+        title: connectorTitle(split === -1 ? row.name : row.name.slice(split + 2)),
         toolsTotal: state?.tools
       }
     })

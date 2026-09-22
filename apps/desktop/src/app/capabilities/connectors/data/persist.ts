@@ -10,24 +10,16 @@ import { CONNECTOR_LIFETIMES, type ConnectorRead, CONNECTORS_QUERY_ROOT } from '
 
 export type PersistedRead = 'bundled' | 'servers' | ConnectorRead
 
-const persists = (read: PersistedRead, identity: PersistedIdentity): boolean => {
-  if (identity === 'signed-in' && ACCOUNT_READS.has(read)) {
-    return false
-  }
+const persists = (read: PersistedRead): boolean =>
+  read === 'bundled' || read === 'servers' || CONNECTOR_LIFETIMES[read].persist
 
-  return read === 'bundled' || read === 'servers' || CONNECTOR_LIFETIMES[read].persist
-}
+const STORAGE_PREFIX = 'hermes.connectors.v4.'
 
-const STORAGE_PREFIX = 'hermes.connectors.v3.'
-
-const IDENTITY_KEY = 'hermes.connectors.identity.v3'
+const IDENTITY_KEY = 'hermes.connectors.identity.v4'
 
 const PERSIST_MAX_BYTES = 256 * 1024
 
 type PersistedIdentity = 'guest' | 'signed-in'
-
-// The renderer can read no subject for a signed-in account, so nothing an account owns is kept.
-const ACCOUNT_READS: ReadonlySet<PersistedRead> = new Set<PersistedRead>(['catalog', 'list', 'tools'])
 
 interface PersistedEntry {
   at: number
@@ -84,13 +76,8 @@ const SLOTS = {
 
 type SlotRead = keyof typeof SLOTS
 
-function entryOf(
-  blob: PersistedBlob,
-  read: PersistedRead,
-  slug: string | undefined,
-  identity: PersistedIdentity
-): PersistedEntry | undefined {
-  if (!persists(read, identity)) {
+function entryOf(blob: PersistedBlob, read: PersistedRead, slug: string | undefined): PersistedEntry | undefined {
+  if (!persists(read)) {
     return undefined
   }
 
@@ -112,14 +99,12 @@ export interface QuerySeed<T> {
 }
 
 export function seedOptions<T>(scopeKey: ProfileScope, read: PersistedRead, slug?: string): QuerySeed<T> {
-  const identity = currentIdentity()
-
-  if (identity === null) {
+  if (currentIdentity() === null) {
     return {}
   }
 
   const blob = readBlob(profileScopeKey(scopeKey))
-  const entry = blob ? entryOf(blob, read, slug, identity) : undefined
+  const entry = blob ? entryOf(blob, read, slug) : undefined
 
   if (!entry || !Number.isFinite(entry.at) || entry.data === undefined || entry.data === null) {
     return {}
@@ -150,7 +135,7 @@ function trimmed(blob: PersistedBlob): PersistedBlob {
 function store(scopeKey: string, read: PersistedRead, slug: string | undefined, entry: PersistedEntry): void {
   const identity = currentIdentity()
 
-  if (identity === null || !persists(read, identity) || size(entry) > PERSIST_MAX_BYTES) {
+  if (identity === null || !persists(read) || size(entry) > PERSIST_MAX_BYTES) {
     return
   }
 

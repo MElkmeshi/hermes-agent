@@ -281,7 +281,7 @@ function fromClaudeAdd(tokens: string[]): McpImportEntry | null {
 }
 
 // `hermes mcp add NAME [--url U] [--command C] [--auth oauth|header]
-// [--env K=V …] [--header K: V] [--preset P] [--connect-timeout N] [--args …]`
+// [--env K=V …] [--preset P] [--connect-timeout N] [--args …]`
 // — the flags `hermes_cli/subcommands/mcp.py` registers, `--env` taking any
 // number of pairs and `--args` the rest of the line.
 interface HermesAddFlags {
@@ -289,7 +289,6 @@ interface HermesAddFlags {
   auth: null | string
   command: null | string
   env: Record<string, string>
-  headers: Record<string, string>
   name: null | string
   url: null | string
 }
@@ -301,7 +300,6 @@ const emptyHermesFlags = (): HermesAddFlags => ({
   auth: null,
   command: null,
   env: {},
-  headers: {},
   name: null,
   url: null
 })
@@ -349,17 +347,6 @@ function readHermesToken(flags: HermesAddFlags, tokens: string[], index: number)
     return readEnvPairs(flags.env, tokens, index)
   }
 
-  if (token === '--header') {
-    const pair = tokens[index + 1] ?? ''
-    const colon = pair.indexOf(':')
-
-    if (colon > 0) {
-      flags.headers[pair.slice(0, colon).trim()] = pair.slice(colon + 1).trim()
-    }
-
-    return index + 1
-  }
-
   if (token === '--connect-timeout' || token === '--preset') {
     return index + 1
   }
@@ -372,7 +359,7 @@ function readHermesToken(flags: HermesAddFlags, tokens: string[], index: number)
 }
 
 function hermesEntry(flags: HermesAddFlags): McpImportEntry | null {
-  const { args, auth, command, env, headers, name, url } = flags
+  const { args, auth, command, env, name, url } = flags
 
   if (!name || (!url && !command)) {
     return null
@@ -390,10 +377,6 @@ function hermesEntry(flags: HermesAddFlags): McpImportEntry | null {
 
   if (Object.keys(env).length > 0) {
     config.env = env
-  }
-
-  if (Object.keys(headers).length > 0) {
-    config.headers = headers
   }
 
   return { config, name }

@@ -40,7 +40,7 @@ export interface ToolsListProps {
   editor: ToolsEditor
   listKey: string
   onReload: () => void
-  onRemove: () => void
+  onRemove?: () => void
   onRetry: () => void
   onRetryRules?: () => void
   onSignIn?: () => void
@@ -48,6 +48,7 @@ export interface ToolsListProps {
   readOnly?: boolean
   rulesSignedOut?: boolean
   signedOut?: boolean
+  summaryTitle?: string
   tools: ToolRowModel[]
 }
 
@@ -94,6 +95,7 @@ function ToolsListBody(props: ToolsListProps) {
     readOnly = false,
     rulesSignedOut = false,
     signedOut = false,
+    summaryTitle,
     tools
   } = props
 
@@ -140,6 +142,7 @@ function ToolsListBody(props: ToolsListProps) {
           preview={preview}
           readOnly={readOnly || appOff}
           rows={summary}
+          title={summaryTitle}
           total={tools.length}
         />
       )}
@@ -198,7 +201,7 @@ function StatusColumn({
   difference: ConflictDifference
   editor: ToolsEditor
   onReload: () => void
-  onRemove: () => void
+  onRemove?: () => void
   onSignIn?: () => void
   phase: ToolsStatusPhase
 }) {

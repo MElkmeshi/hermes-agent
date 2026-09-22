@@ -336,7 +336,7 @@ function nameOf(
 ): string {
   const key = hosted?.slug ?? local?.connectorSlug ?? bundled?.connectorSlug ?? slug
 
-  return titles[key] ?? connectorTitle(local?.name ?? bundled?.name ?? slug)
+  return titles[key] ?? local?.title ?? connectorTitle(local?.name ?? bundled?.name ?? slug)
 }
 
 function cardOf(slot: CardParts, titles: Readonly<Record<string, string>>): ConnectorCardModel | null {

@@ -127,10 +127,10 @@ export function useHostedConnectors(scope: ProfileScope): HostedConnectorsView {
   const blanked = phase === 'signedOut' || phase === 'unavailable'
 
   useEffect(() => {
-    if (blanked) {
+    if (phase === 'signedOut') {
       clearPersisted(scope)
     }
-  }, [blanked, scope])
+  }, [phase, scope])
 
   const listSlugs = useMemo(
     () =>
