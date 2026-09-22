@@ -1,5 +1,6 @@
 import type { ConnectionRequestPayload, ConnectionUpdatePayload, GatewayEvent } from '@hermes/shared'
 
+import { applyAccountConnectionUpdate } from '@/app/capabilities/connectors/data/account-operations'
 import { pendingClarifyToolPayload } from '@/app/session/hooks/use-session-actions/restore-pending-clarify'
 import { connectionRequestToolPayload } from '@/app/session/hooks/use-session-actions/restore-pending-connection'
 import { translateNow } from '@/i18n'
@@ -72,6 +73,13 @@ export function handleInputRequestEvent(ctx: GatewayEventContext): boolean {
   }
 
   if (isConnectionUpdateEvent(event)) {
+    // An ACCOUNT operation has no chat: in a session's card it would attach to whichever transcript is focused.
+    if (event.payload.owner.type === 'account') {
+      applyAccountConnectionUpdate(event.payload)
+
+      return true
+    }
+
     updateConnectionRequest(sessionId ?? null, event.payload)
 
     if (event.payload.settled && sessionId) {
